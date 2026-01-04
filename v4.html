@@ -1,0 +1,2334 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deriv Advanced Trading Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/7.12.1/polyfill.min.js"></script>
+
+    <style>
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .slide-in {
+        animation: slideIn 0.3s ease-out;
+      }
+      .pulse-anim {
+        animation: pulse 2s infinite;
+      }
+      .fade-in {
+        animation: fadeIn 0.5s ease-in;
+      }
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 400px;
+      }
+      .chart-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 2px;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      .scroll-smooth {
+        scroll-behavior: smooth;
+      }
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white min-h-screen"
+  >
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification"></div>
+
+    <!-- Header -->
+    <header
+      class="bg-black bg-opacity-50 backdrop-blur-lg border-b border-gray-700 sticky top-0 z-50"
+    >
+      <div class="container mx-auto px-4 py-4">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center space-x-4">
+            <h1
+              class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent"
+            >
+              Advanced Trader
+            </h1>
+            <div class="flex items-center space-x-2">
+              <span class="status-dot pulse-anim" id="connectionStatus"></span>
+              <span class="text-sm text-gray-400" id="connectionText"
+                >Disconnected</span
+              >
+            </div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="text-right">
+              <div class="text-xs text-gray-400">Balance</div>
+              <div class="text-lg font-bold" id="accountBalance">$0.00</div>
+            </div>
+            <button
+              onclick="showModal('settingsModal')"
+              class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition"
+            >
+              ⚙️ Settings
+            </button>
+            <button
+              onclick="disconnect()"
+              class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition"
+            >
+              Disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Connection Modal -->
+    <div
+      id="connectionModal"
+      class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+    >
+      <div class="bg-gray-800 rounded-xl p-8 max-w-md w-full mx-4 fade-in">
+        <h2 class="text-2xl font-bold mb-6">Connect to Deriv</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">API Token</label>
+            <input
+              type="password"
+              id="apiToken"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your Deriv API token"
+            />
+            <p class="text-xs text-gray-400 mt-1">
+              Get your token from:
+              <a
+                href="https://app.deriv.com/account/api-token"
+                target="_blank"
+                class="text-blue-400 hover:underline"
+                >app.deriv.com/account/api-token</a
+              >
+            </p>
+          </div>
+          <button
+            onclick="connectToDeriv()"
+            class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 py-3 rounded-lg font-semibold transition"
+          >
+            Connect
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Container -->
+    <div
+      class="container mx-auto px-4 py-6"
+      id="mainContent"
+      style="display: none"
+    >
+      <!-- Top Control Panel -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Market Selection -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 class="text-sm font-semibold mb-3 text-gray-300">
+            Market Selection
+          </h3>
+          <select
+            id="marketType"
+            onchange="loadSymbols()"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="forex">Forex (Major Pairs)</option>
+            <option value="volatility">Volatility Indices</option>
+            <option value="crash_boom">Crash/Boom</option>
+          </select>
+          <select
+            id="symbolSelect"
+            onchange="changeSymbol()"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select Symbol</option>
+          </select>
+        </div>
+
+        <!-- Timeframe Selection -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 class="text-sm font-semibold mb-3 text-gray-300">Timeframe</h3>
+          <select
+            id="timeframe"
+            onchange="changeTimeframe()"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="tick">Ticks</option>
+            <option value="60">1 Minute</option>
+            <option value="300">5 Minutes</option>
+            <option value="900">15 Minutes</option>
+            <option value="3600">1 Hour</option>
+            <option value="14400">4 Hours</option>
+            <option value="86400">1 Day</option>
+          </select>
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" id="multiTimeframe" class="rounded" />
+            <label class="text-sm">Multi-Timeframe Analysis</label>
+          </div>
+        </div>
+
+        <!-- Strategy Selection -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 class="text-sm font-semibold mb-3 text-gray-300">
+            Trading Strategy
+          </h3>
+          <select
+            id="strategy"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="macd_crossover">MACD Crossover</option>
+            <option value="ema_crossover">EMA Crossover</option>
+            <option value="rsi_divergence">RSI Divergence</option>
+            <option value="rsi_convergence">RSI Convergence</option>
+            <option value="break_retest">Break & Retest</option>
+            <option value="fibonacci">Fibonacci Retracement</option>
+          </select>
+          <button
+            onclick="showModal('strategySettingsModal')"
+            class="w-full mt-2 bg-gray-700 hover:bg-gray-600 py-2 rounded-lg text-sm transition"
+          >
+            Configure Strategy
+          </button>
+        </div>
+
+        <!-- Trading Controls -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 class="text-sm font-semibold mb-3 text-gray-300">Trading Mode</h3>
+          <div class="space-y-2">
+            <button
+              onclick="toggleAutoTrading()"
+              id="autoTradeBtn"
+              class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg font-semibold transition"
+            >
+              Start Auto Trading
+            </button>
+            <button
+              onclick="showModal('manualTradeModal')"
+              class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-semibold transition"
+            >
+              Manual Trade
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Grid Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Left Column: Chart & Indicators -->
+        <div class="lg:col-span-2 space-y-4">
+          <!-- Price Chart -->
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold" id="chartTitle">
+                Select a Symbol
+              </h3>
+              <div class="flex items-center space-x-2">
+                <span class="text-2xl font-bold" id="currentPrice">-</span>
+                <span class="text-sm" id="priceChange">-</span>
+              </div>
+            </div>
+            <div class="chart-container">
+              <div class="bg-gray-900 rounded-lg p-4" style="height: 400px">
+                <canvas id="priceChart" class="w-full h-full"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Technical Indicators Panel -->
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <h3 class="text-lg font-semibold mb-4">Technical Indicators</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="bg-gray-700 rounded-lg p-3">
+                <div class="text-xs text-gray-400">MACD</div>
+                <div class="text-lg font-bold" id="macdValue">-</div>
+                <div class="text-xs" id="macdSignal">-</div>
+              </div>
+              <div class="bg-gray-700 rounded-lg p-3">
+                <div class="text-xs text-gray-400">RSI (14)</div>
+                <div class="text-lg font-bold" id="rsiValue">-</div>
+                <div class="text-xs" id="rsiStatus">-</div>
+              </div>
+              <div class="bg-gray-700 rounded-lg p-3">
+                <div class="text-xs text-gray-400">EMA (20)</div>
+                <div class="text-lg font-bold" id="ema20Value">-</div>
+              </div>
+              <div class="bg-gray-700 rounded-lg p-3">
+                <div class="text-xs text-gray-400">EMA (50)</div>
+                <div class="text-lg font-bold" id="ema50Value">-</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signal Panel -->
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <h3 class="text-lg font-semibold mb-4">Trading Signals</h3>
+            <div id="signalPanel" class="space-y-2">
+              <div class="text-gray-400 text-center py-4">
+                No signals generated yet
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Stats & History -->
+        <div class="space-y-4">
+          <!-- Trading Statistics -->
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <h3 class="text-lg font-semibold mb-4">Statistics</h3>
+            <div class="space-y-3">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Total Trades:</span>
+                <span class="font-bold" id="totalTrades">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Win Rate:</span>
+                <span class="font-bold text-green-400" id="winRate">0%</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Profit/Loss:</span>
+                <span class="font-bold" id="profitLoss">$0.00</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Today's Trades:</span>
+                <span class="font-bold" id="todayTrades">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Positions -->
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <h3 class="text-lg font-semibold mb-4">Active Positions</h3>
+            <div id="activePositions" class="space-y-2">
+              <div class="text-gray-400 text-center py-4 text-sm">
+                No active positions
+              </div>
+            </div>
+          </div>
+
+          <!-- Trade History -->
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold">Trade History</h3>
+              <button
+                onclick="exportHistory()"
+                class="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition"
+              >
+                Export CSV
+              </button>
+            </div>
+            <div id="tradeHistory" class="space-y-2 max-h-96 overflow-y-auto">
+              <div class="text-gray-400 text-center py-4 text-sm">
+                No trades yet
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div
+      id="settingsModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-800 rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+      >
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Settings</h2>
+          <button
+            onclick="hideModal('settingsModal')"
+            class="text-gray-400 hover:text-white text-2xl"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Risk Management -->
+          <div>
+            <h3 class="text-lg font-semibold mb-3">Risk Management</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm mb-2">Max Risk per Trade (%)</label>
+                <input
+                  type="number"
+                  id="maxRisk"
+                  value="2"
+                  min="0.1"
+                  max="10"
+                  step="0.1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Daily Loss Limit ($)</label>
+                <input
+                  type="number"
+                  id="dailyLossLimit"
+                  value="100"
+                  min="0"
+                  step="10"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Max Concurrent Trades</label>
+                <input
+                  type="number"
+                  id="maxConcurrent"
+                  value="3"
+                  min="1"
+                  max="10"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Stop Loss (%)</label>
+                <input
+                  type="number"
+                  id="stopLoss"
+                  value="5"
+                  min="0.1"
+                  max="20"
+                  step="0.1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Take Profit (%)</label>
+                <input
+                  type="number"
+                  id="takeProfit"
+                  value="10"
+                  min="0.1"
+                  max="50"
+                  step="0.1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Trailing Stop (%)</label>
+                <input
+                  type="number"
+                  id="trailingStop"
+                  value="0"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Signal Mode -->
+          <div>
+            <h3 class="text-lg font-semibold mb-3">Signal Mode</h3>
+            <div class="space-y-2">
+              <label class="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="signalMode"
+                  value="multi"
+                  checked
+                  class="form-radio"
+                />
+                <span>Multi-Indicator Confirmation</span>
+              </label>
+              <label class="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="signalMode"
+                  value="strategy"
+                  class="form-radio"
+                />
+                <span>Strategy-Based Signals</span>
+              </label>
+            </div>
+            <div class="mt-3">
+              <label class="block text-sm mb-2">Required Confirmations</label>
+              <input
+                type="number"
+                id="requiredConfirmations"
+                value="2"
+                min="1"
+                max="5"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div>
+            <h3 class="text-lg font-semibold mb-3">Notifications</h3>
+            <div class="space-y-2">
+              <label class="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="notifyTrades"
+                  checked
+                  class="rounded"
+                />
+                <span>Trade Executions</span>
+              </label>
+              <label class="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="notifySignals"
+                  checked
+                  class="rounded"
+                />
+                <span>Trading Signals</span>
+              </label>
+              <label class="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="notifyErrors"
+                  checked
+                  class="rounded"
+                />
+                <span>Errors & Warnings</span>
+              </label>
+              <label class="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="notifyConnection"
+                  checked
+                  class="rounded"
+                />
+                <span>Connection Status</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end space-x-4">
+          <button
+            onclick="hideModal('settingsModal')"
+            class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="saveSettings()"
+            class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition"
+          >
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Trade Modal -->
+    <div
+      id="manualTradeModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+    >
+      <div class="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Manual Trade</h2>
+          <button
+            onclick="hideModal('manualTradeModal')"
+            class="text-gray-400 hover:text-white text-2xl"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm mb-2">Trade Type</label>
+            <select
+              id="manualTradeType"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+            >
+              <option value="CALL">CALL (Buy)</option>
+              <option value="PUT">PUT (Sell)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Stake Amount ($)</label>
+            <input
+              type="number"
+              id="manualStake"
+              value="10"
+              min="1"
+              step="1"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+            />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Duration (minutes)</label>
+            <input
+              type="number"
+              id="manualDuration"
+              value="5"
+              min="1"
+              max="60"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+            />
+          </div>
+          <div class="flex space-x-4">
+            <button
+              onclick="hideModal('manualTradeModal')"
+              class="flex-1 bg-gray-700 hover:bg-gray-600 py-2 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              onclick="executeManualTrade()"
+              class="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded-lg transition"
+            >
+              Execute Trade
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strategy Settings Modal -->
+    <div
+      id="strategySettingsModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+      >
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Strategy Configuration</h2>
+          <button
+            onclick="hideModal('strategySettingsModal')"
+            class="text-gray-400 hover:text-white text-2xl"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-6">
+          <!-- MACD Settings -->
+          <div>
+            <h3 class="text-lg font-semibold mb-3">MACD Indicator</h3>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm mb-2">Fast Period</label>
+                <input
+                  type="number"
+                  id="macdFast"
+                  value="12"
+                  min="1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Slow Period</label>
+                <input
+                  type="number"
+                  id="macdSlow"
+                  value="26"
+                  min="1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Signal Period</label>
+                <input
+                  type="number"
+                  id="macdSignal"
+                  value="9"
+                  min="1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- RSI Settings -->
+          <div>
+            <h3 class="text-lg font-semibold mb-3">RSI Indicator</h3>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm mb-2">Period</label>
+                <input
+                  type="number"
+                  id="rsiPeriod"
+                  value="14"
+                  min="1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Overbought</label>
+                <input
+                  type="number"
+                  id="rsiOverbought"
+                  value="70"
+                  min="50"
+                  max="90"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Oversold</label>
+                <input
+                  type="number"
+                  id="rsiOversold"
+                  value="30"
+                  min="10"
+                  max="50"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- EMA Settings -->
+          <div>
+            <h3 class="text-lg font-semibold mb-3">EMA Settings</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm mb-2">Fast EMA Period</label>
+                <input
+                  type="number"
+                  id="emaFast"
+                  value="20"
+                  min="1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block text-sm mb-2">Slow EMA Period</label>
+                <input
+                  type="number"
+                  id="emaSlow"
+                  value="50"
+                  min="1"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end space-x-4">
+          <button
+            onclick="hideModal('strategySettingsModal')"
+            class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="saveStrategySettings()"
+            class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition"
+          >
+            Save Configuration
+          </button>
+        </div>
+      </div>
+    </div>
+    <script>
+      // ============================================
+      // CUSTOM TECHNICAL INDICATORS LIBRARY
+      // ============================================
+      const TI = {
+        // Exponential Moving Average
+        EMA: {
+          calculate: function (input) {
+            const { values, period } = input;
+            const result = [];
+            const multiplier = 2 / (period + 1);
+
+            // Start with SMA
+            let sum = 0;
+            for (let i = 0; i < period; i++) {
+              sum += values[i];
+            }
+            let ema = sum / period;
+            result.push(ema);
+
+            // Calculate EMA for rest
+            for (let i = period; i < values.length; i++) {
+              ema = (values[i] - ema) * multiplier + ema;
+              result.push(ema);
+            }
+
+            return result;
+          },
+        },
+
+        // Relative Strength Index
+        RSI: {
+          calculate: function (input) {
+            const { values, period } = input;
+            const result = [];
+
+            if (values.length < period + 1) return result;
+
+            let gains = [];
+            let losses = [];
+
+            // Calculate price changes
+            for (let i = 1; i < values.length; i++) {
+              const change = values[i] - values[i - 1];
+              gains.push(change > 0 ? change : 0);
+              losses.push(change < 0 ? Math.abs(change) : 0);
+            }
+
+            // Calculate initial average gain and loss
+            let avgGain = 0;
+            let avgLoss = 0;
+
+            for (let i = 0; i < period; i++) {
+              avgGain += gains[i];
+              avgLoss += losses[i];
+            }
+
+            avgGain /= period;
+            avgLoss /= period;
+
+            // Calculate RSI
+            for (let i = period; i < gains.length; i++) {
+              avgGain = (avgGain * (period - 1) + gains[i]) / period;
+              avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+
+              const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+              const rsi = 100 - 100 / (1 + rs);
+              result.push(rsi);
+            }
+
+            return result;
+          },
+        },
+
+        // MACD (Moving Average Convergence Divergence)
+        // MACD (Moving Average Convergence Divergence)
+        MACD: {
+          calculate: function (input) {
+            const { values, fastPeriod, slowPeriod, signalPeriod } = input;
+            const result = [];
+
+            if (values.length < slowPeriod + signalPeriod) {
+              console.warn("Not enough data for MACD calculation");
+              return result;
+            }
+
+            // Calculate Fast EMA
+            const fastEMA = this.calculateEMA(values, fastPeriod);
+
+            // Calculate Slow EMA
+            const slowEMA = this.calculateEMA(values, slowPeriod);
+
+            // Calculate MACD line (Fast EMA - Slow EMA)
+            const macdLine = [];
+            const offset = slowPeriod - fastPeriod;
+
+            for (let i = 0; i < slowEMA.length; i++) {
+              const fastIndex = i + offset;
+              if (fastIndex < fastEMA.length) {
+                macdLine.push(fastEMA[fastIndex] - slowEMA[i]);
+              }
+            }
+
+            // Calculate Signal line (EMA of MACD line)
+            if (macdLine.length < signalPeriod) {
+              console.warn("Not enough MACD values for signal line");
+              return result;
+            }
+
+            const signalLine = this.calculateEMA(macdLine, signalPeriod);
+
+            // Build result with MACD, Signal, and Histogram
+            const signalOffset = signalPeriod - 1;
+
+            for (let i = 0; i < signalLine.length; i++) {
+              const macdIndex = i + signalOffset;
+              if (macdIndex < macdLine.length) {
+                const macdValue = macdLine[macdIndex];
+                const signalValue = signalLine[i];
+
+                result.push({
+                  MACD: macdValue,
+                  signal: signalValue,
+                  histogram: macdValue - signalValue,
+                });
+              }
+            }
+
+            return result;
+          },
+
+          calculateEMA: function (values, period) {
+            const result = [];
+            const multiplier = 2 / (period + 1);
+
+            if (values.length < period) {
+              return result;
+            }
+
+            // Start with SMA
+            let sum = 0;
+            for (let i = 0; i < period; i++) {
+              sum += values[i];
+            }
+            let ema = sum / period;
+            result.push(ema);
+
+            // Calculate EMA for rest
+            for (let i = period; i < values.length; i++) {
+              ema = (values[i] - ema) * multiplier + ema;
+              result.push(ema);
+            }
+
+            return result;
+          },
+        },
+        // Bollinger Bands
+        BollingerBands: {
+          calculate: function (input) {
+            const { values, period, stdDev } = input;
+            const result = [];
+
+            for (let i = period - 1; i < values.length; i++) {
+              // Calculate SMA
+              let sum = 0;
+              for (let j = 0; j < period; j++) {
+                sum += values[i - j];
+              }
+              const sma = sum / period;
+
+              // Calculate standard deviation
+              let variance = 0;
+              for (let j = 0; j < period; j++) {
+                variance += Math.pow(values[i - j] - sma, 2);
+              }
+              const sd = Math.sqrt(variance / period);
+
+              result.push({
+                middle: sma,
+                upper: sma + sd * stdDev,
+                lower: sma - sd * stdDev,
+              });
+            }
+
+            return result;
+          },
+        },
+
+        // Stochastic Oscillator
+        Stochastic: {
+          calculate: function (input) {
+            const { high, low, close, period, signalPeriod } = input;
+            const result = [];
+
+            for (let i = period - 1; i < close.length; i++) {
+              let highestHigh = -Infinity;
+              let lowestLow = Infinity;
+
+              for (let j = 0; j < period; j++) {
+                const index = i - j;
+                highestHigh = Math.max(highestHigh, high[index]);
+                lowestLow = Math.min(lowestLow, low[index]);
+              }
+
+              const k =
+                ((close[i] - lowestLow) / (highestHigh - lowestLow)) * 100;
+              result.push({ k, d: 0 });
+            }
+
+            // Calculate %D (SMA of %K)
+            for (let i = signalPeriod - 1; i < result.length; i++) {
+              let sum = 0;
+              for (let j = 0; j < signalPeriod; j++) {
+                sum += result[i - j].k;
+              }
+              result[i].d = sum / signalPeriod;
+            }
+
+            return result;
+          },
+        },
+
+        // Average True Range
+        ATR: {
+          calculate: function (input) {
+            const { high, low, close, period } = input;
+            const result = [];
+            const tr = [];
+
+            // Calculate True Range
+            for (let i = 1; i < close.length; i++) {
+              const hl = high[i] - low[i];
+              const hc = Math.abs(high[i] - close[i - 1]);
+              const lc = Math.abs(low[i] - close[i - 1]);
+              tr.push(Math.max(hl, hc, lc));
+            }
+
+            // Calculate ATR
+            let atr = 0;
+            for (let i = 0; i < period; i++) {
+              atr += tr[i];
+            }
+            atr /= period;
+            result.push(atr);
+
+            for (let i = period; i < tr.length; i++) {
+              atr = (atr * (period - 1) + tr[i]) / period;
+              result.push(atr);
+            }
+
+            return result;
+          },
+        },
+
+        // Simple Moving Average
+        SMA: {
+          calculate: function (input) {
+            const { values, period } = input;
+            const result = [];
+
+            for (let i = period - 1; i < values.length; i++) {
+              let sum = 0;
+              for (let j = 0; j < period; j++) {
+                sum += values[i - j];
+              }
+              result.push(sum / period);
+            }
+
+            return result;
+          },
+        },
+      };
+
+      // ============================================
+      // END OF TECHNICAL INDICATORS LIBRARY
+      // ============================================
+      // State Management
+      const state = {
+        ws: null,
+        connected: false,
+        autoTrading: false,
+        currentSymbol: null,
+        currentPrice: 0,
+        priceHistory: [],
+        candles: [],
+        trades: [],
+        activePositions: [],
+        indicators: {},
+        settings: {
+          maxRisk: 2,
+          dailyLossLimit: 100,
+          maxConcurrent: 3,
+          stopLoss: 5,
+          takeProfit: 10,
+          trailingStop: 0,
+          signalMode: "multi",
+          requiredConfirmations: 2,
+          macd: { fast: 12, slow: 26, signal: 9 },
+          rsi: { period: 14, overbought: 70, oversold: 30 },
+          ema: { fast: 20, slow: 50 },
+        },
+        stats: {
+          totalTrades: 0,
+          wins: 0,
+          losses: 0,
+          profitLoss: 0,
+          todayTrades: 0,
+        },
+      };
+
+      const symbols = {
+        forex: [
+          { value: "frxEURUSD", label: "EUR/USD" },
+          { value: "frxGBPUSD", label: "GBP/USD" },
+          { value: "frxUSDJPY", label: "USD/JPY" },
+          { value: "frxAUDUSD", label: "AUD/USD" },
+          { value: "frxUSDCAD", label: "USD/CAD" },
+        ],
+        volatility: [
+          { value: "R_10", label: "Volatility 10 Index" },
+          { value: "R_25", label: "Volatility 25 Index" },
+          { value: "R_50", label: "Volatility 50 Index" },
+          { value: "R_75", label: "Volatility 75 Index" },
+          { value: "R_100", label: "Volatility 100 Index" },
+        ],
+        crash_boom: [
+          { value: "BOOM1000", label: "Boom 1000 Index" },
+          { value: "BOOM500", label: "Boom 500 Index" },
+          { value: "CRASH1000", label: "Crash 1000 Index" },
+          { value: "CRASH500", label: "Crash 500 Index" },
+        ],
+      };
+
+      // Initialize on page load
+      window.onload = () => {
+        loadSymbols();
+      };
+
+      // Connect to Deriv API
+      // Connect to Deriv API
+      async function connectToDeriv() {
+        const token = document.getElementById("apiToken").value.trim();
+
+        if (!token) {
+          showNotification("Please enter your API token", "error");
+          return;
+        }
+
+        try {
+          // Close existing connection if any
+          if (state.ws) {
+            state.ws.close();
+          }
+
+          state.ws = new WebSocket(
+            "wss://ws.derivws.com/websockets/v3?app_id=1089"
+          );
+
+          state.ws.onopen = () => {
+            console.log("WebSocket connected");
+            // Send authorization after connection is established
+            state.ws.send(JSON.stringify({ authorize: token }));
+          };
+
+          state.ws.onmessage = (msg) => {
+            try {
+              const data = JSON.parse(msg.data);
+              handleWebSocketMessage(data);
+            } catch (e) {
+              console.error("Message parse error:", e);
+            }
+          };
+
+          state.ws.onerror = (error) => {
+            console.error("WebSocket error:", error);
+            showNotification("WebSocket connection error", "error");
+            updateConnectionStatus(false);
+          };
+
+          state.ws.onclose = () => {
+            console.log("WebSocket closed");
+            showNotification("Connection closed", "warning");
+            updateConnectionStatus(false);
+            state.connected = false;
+          };
+        } catch (error) {
+          console.error("Connection error:", error);
+          showNotification("Failed to connect: " + error.message, "error");
+        }
+      }
+
+      // Handle WebSocket messages
+      // Handle WebSocket messages
+      function handleWebSocketMessage(data) {
+        console.log("Received:", data.msg_type, data);
+        // At the start of handleWebSocketMessage function, add:
+        console.log("📨 WebSocket Message:", {
+          msg_type: data.msg_type,
+          error: data.error,
+          hasProposal: !!data.proposal,
+          hasBuy: !!data.buy,
+          full: data,
+        });
+
+        if (data.error) {
+          console.error("API Error:", data.error);
+          showNotification("API Error: " + data.error.message, "error");
+
+          // If authorization failed, show connection modal again
+          if (
+            data.error.code === "AuthorizationRequired" ||
+            data.error.message.includes("authorize")
+          ) {
+            state.connected = false;
+            updateConnectionStatus(false);
+            document.getElementById("mainContent").style.display = "none";
+            document.getElementById("connectionModal").style.display = "flex";
+          }
+          return;
+        }
+
+        if (data.msg_type === "authorize") {
+          if (data.authorize) {
+            state.connected = true;
+            updateConnectionStatus(true);
+            document.getElementById("connectionModal").style.display = "none";
+            document.getElementById("mainContent").style.display = "block";
+
+            // Get account balance
+            state.ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+
+            // Get active symbols
+            state.ws.send(
+              JSON.stringify({ active_symbols: "brief", product_type: "basic" })
+            );
+
+            showNotification(
+              "Successfully connected to Deriv! Account: " +
+                data.authorize.loginid,
+              "success"
+            );
+          }
+        }
+
+        if (data.msg_type === "balance") {
+          if (data.balance) {
+            document.getElementById("accountBalance").textContent =
+              data.balance.currency +
+              " " +
+              parseFloat(data.balance.balance).toFixed(2);
+          }
+        }
+
+        if (data.msg_type === "tick") {
+          handleTickData(data.tick);
+        }
+
+        if (data.msg_type === "candles" || data.msg_type === "history") {
+          handleCandleData(data.candles || data.history);
+        }
+
+        if (data.msg_type === "ohlc") {
+          handleCandleUpdate(data.ohlc);
+        }
+
+        if (data.msg_type === "buy") {
+          handleTradeResponse(data);
+        }
+
+        if (data.msg_type === "proposal_open_contract") {
+          handleContractUpdate(data.proposal_open_contract);
+        }
+
+        if (data.msg_type === "proposal") {
+          // Store proposal for buying
+          if (data.proposal && !data.error) {
+            state.lastProposal = data.proposal.id;
+          }
+        }
+      }
+
+      // Handle tick data
+      function handleTickData(tick) {
+        state.currentPrice = tick.quote;
+        state.priceHistory.push({
+          time: new Date(tick.epoch * 1000),
+          price: tick.quote,
+        });
+
+        // Keep last 100 ticks
+        if (state.priceHistory.length > 100) {
+          state.priceHistory.shift();
+        }
+
+        updatePriceDisplay();
+        calculateIndicators();
+
+        if (state.autoTrading) {
+          analyzeAndTrade();
+        }
+      }
+
+      // Handle candle data
+      function handleCandleData(candles) {
+        state.candles = candles.map((c) => ({
+          time: new Date(c.epoch * 1000),
+          open: parseFloat(c.open),
+          high: parseFloat(c.high),
+          low: parseFloat(c.low),
+          close: parseFloat(c.close),
+        }));
+
+        calculateIndicators();
+      }
+
+      // Handle candle updates
+      function handleCandleUpdate(ohlc) {
+        const candle = {
+          time: new Date(ohlc.epoch * 1000),
+          open: parseFloat(ohlc.open),
+          high: parseFloat(ohlc.high),
+          low: parseFloat(ohlc.low),
+          close: parseFloat(ohlc.close),
+        };
+
+        if (state.candles.length > 0) {
+          const lastCandle = state.candles[state.candles.length - 1];
+          if (lastCandle.time.getTime() === candle.time.getTime()) {
+            state.candles[state.candles.length - 1] = candle;
+          } else {
+            state.candles.push(candle);
+            if (state.candles.length > 200) state.candles.shift();
+          }
+        } else {
+          state.candles.push(candle);
+        }
+
+        state.currentPrice = candle.close;
+        updatePriceDisplay();
+        calculateIndicators();
+
+        if (state.autoTrading) {
+          analyzeAndTrade();
+        }
+      }
+
+      // Calculate technical indicators
+      // Calculate technical indicators
+      function calculateIndicators() {
+        if (state.candles.length < 50) {
+          console.log(
+            "Not enough candles for indicators:",
+            state.candles.length
+          );
+          return;
+        }
+
+        const closes = state.candles.map((c) => c.close);
+        const highs = state.candles.map((c) => c.high);
+        const lows = state.candles.map((c) => c.low);
+
+        try {
+          // MACD
+          const macdInput = {
+            values: closes,
+            fastPeriod: state.settings.macd.fast,
+            slowPeriod: state.settings.macd.slow,
+            signalPeriod: state.settings.macd.signal,
+            SimpleMAOscillator: false,
+            SimpleMASignal: false,
+          };
+
+          const macdResult = TI.MACD.calculate(macdInput);
+
+          if (macdResult && macdResult.length > 0) {
+            const latest = macdResult[macdResult.length - 1];
+
+            // Check if latest has valid MACD values
+            if (latest && typeof latest.MACD !== "undefined") {
+              state.indicators.macd = latest;
+              document.getElementById("macdValue").textContent =
+                latest.MACD.toFixed(5);
+              document.getElementById("macdSignal").textContent =
+                latest.MACD > latest.signal ? "🟢 Bullish" : "🔴 Bearish";
+            } else {
+              console.warn("Invalid MACD result:", latest);
+            }
+          } else {
+            console.warn("MACD calculation returned empty or invalid result");
+          }
+
+          // RSI
+          const rsiInput = {
+            values: closes,
+            period: state.settings.rsi.period,
+          };
+
+          const rsiResult = TI.RSI.calculate(rsiInput);
+
+          if (rsiResult && rsiResult.length > 0) {
+            const rsi = rsiResult[rsiResult.length - 1];
+
+            if (typeof rsi === "number" && !isNaN(rsi)) {
+              state.indicators.rsi = rsi;
+              document.getElementById("rsiValue").textContent = rsi.toFixed(2);
+
+              let status = "Neutral";
+              if (rsi > state.settings.rsi.overbought) {
+                status = "🔴 Overbought";
+              } else if (rsi < state.settings.rsi.oversold) {
+                status = "🟢 Oversold";
+              }
+              document.getElementById("rsiStatus").textContent = status;
+            } else {
+              console.warn("Invalid RSI result:", rsi);
+            }
+          } else {
+            console.warn("RSI calculation returned empty result");
+          }
+
+          // EMA 20
+          const ema20Input = {
+            values: closes,
+            period: state.settings.ema.fast,
+          };
+
+          const ema20Result = TI.EMA.calculate(ema20Input);
+
+          if (ema20Result && ema20Result.length > 0) {
+            const ema20 = ema20Result[ema20Result.length - 1];
+
+            if (typeof ema20 === "number" && !isNaN(ema20)) {
+              state.indicators.ema20 = ema20;
+              document.getElementById("ema20Value").textContent =
+                ema20.toFixed(5);
+            } else {
+              console.warn("Invalid EMA20 result:", ema20);
+            }
+          }
+
+          // EMA 50
+          const ema50Input = {
+            values: closes,
+            period: state.settings.ema.slow,
+          };
+
+          const ema50Result = TI.EMA.calculate(ema50Input);
+
+          if (ema50Result && ema50Result.length > 0) {
+            const ema50 = ema50Result[ema50Result.length - 1];
+
+            if (typeof ema50 === "number" && !isNaN(ema50)) {
+              state.indicators.ema50 = ema50;
+              document.getElementById("ema50Value").textContent =
+                ema50.toFixed(5);
+            } else {
+              console.warn("Invalid EMA50 result:", ema50);
+            }
+          }
+        } catch (error) {
+          console.error("Indicator calculation error:", error);
+          // Don't show notification for calculation errors during normal operation
+        }
+      }
+      // Analyze market and generate trading signals
+      function analyzeAndTrade() {
+        const strategy = document.getElementById("strategy").value;
+        let signal = null;
+
+        switch (strategy) {
+          case "macd_crossover":
+            signal = analyzeMACDCrossover();
+            break;
+          case "ema_crossover":
+            signal = analyzeEMACrossover();
+            break;
+          case "rsi_divergence":
+            signal = analyzeRSIDivergence();
+            break;
+          case "rsi_convergence":
+            signal = analyzeRSIConvergence();
+            break;
+          case "break_retest":
+            signal = analyzeBreakRetest();
+            break;
+          case "fibonacci":
+            signal = analyzeFibonacci();
+            break;
+        }
+
+        if (signal) {
+          displaySignal(signal);
+
+          if (state.autoTrading && signal.confidence >= 70) {
+            const canTrade = checkRiskManagement();
+            if (canTrade) {
+              executeTrade(signal.type, signal.stake);
+            }
+          }
+        }
+      }
+
+      // MACD Crossover Strategy
+      function analyzeMACDCrossover() {
+        if (!state.indicators.macd) return null;
+
+        const macd = state.indicators.macd;
+        const histogram = macd.histogram;
+
+        // Get previous MACD value
+        if (state.candles.length < state.settings.macd.slow + 10) return null;
+
+        let signal = null;
+        let confidence = 0;
+
+        if (macd.MACD > macd.signal && histogram > 0) {
+          signal = "CALL";
+          confidence = Math.min(90, 60 + Math.abs(histogram) * 100);
+        } else if (macd.MACD < macd.signal && histogram < 0) {
+          signal = "PUT";
+          confidence = Math.min(90, 60 + Math.abs(histogram) * 100);
+        }
+
+        if (signal) {
+          return {
+            type: getDerivContractType(signal, state.currentSymbol),
+            strategy: "MACD Crossover",
+            confidence: confidence,
+            stake: calculateStakeAmount(),
+          };
+        }
+        return null;
+      }
+
+      // EMA Crossover Strategy
+      function analyzeEMACrossover() {
+        if (!state.indicators.ema20 || !state.indicators.ema50) return null;
+
+        const ema20 = state.indicators.ema20;
+        const ema50 = state.indicators.ema50;
+        const price = state.currentPrice;
+
+        let signal = null;
+        let confidence = 0;
+
+        if (ema20 > ema50 && price > ema20) {
+          signal = "CALL";
+          const diff = ((ema20 - ema50) / ema50) * 100;
+          confidence = Math.min(85, 55 + Math.abs(diff) * 50);
+        } else if (ema20 < ema50 && price < ema20) {
+          signal = "PUT";
+          const diff = ((ema50 - ema20) / ema50) * 100;
+          confidence = Math.min(85, 55 + Math.abs(diff) * 50);
+        }
+
+        if (signal) {
+          return {
+            type: getDerivContractType(signal, state.currentSymbol),
+            strategy: "EMA Crossover",
+            confidence: confidence,
+            stake: calculateStakeAmount(),
+          };
+        }
+        return null;
+      }
+
+      // RSI Divergence Strategy
+      function analyzeRSIDivergence() {
+        if (!state.indicators.rsi || state.candles.length < 20) return null;
+
+        const rsi = state.indicators.rsi;
+        let signal = null;
+        let confidence = 0;
+
+        if (rsi < state.settings.rsi.oversold) {
+          signal = "CALL";
+          confidence = Math.min(90, 50 + (state.settings.rsi.oversold - rsi));
+        } else if (rsi > state.settings.rsi.overbought) {
+          signal = "PUT";
+          confidence = Math.min(90, 50 + (rsi - state.settings.rsi.overbought));
+        }
+
+        if (signal) {
+          return {
+            type: getDerivContractType(signal, state.currentSymbol),
+            strategy: "RSI Divergence",
+            confidence: confidence,
+            stake: calculateStakeAmount(),
+          };
+        }
+        return null;
+      }
+
+      // RSI Convergence Strategy
+      function analyzeRSIConvergence() {
+        if (!state.indicators.rsi) return null;
+
+        const rsi = state.indicators.rsi;
+        let signal = null;
+        let confidence = 0;
+
+        if (rsi > 45 && rsi < 55) {
+          // Neutral zone - look for momentum
+          if (state.currentPrice > state.indicators.ema20) {
+            signal = "CALL";
+            confidence = 65;
+          } else {
+            signal = "PUT";
+            confidence = 65;
+          }
+        }
+
+        if (signal) {
+          return {
+            type: getDerivContractType(signal, state.currentSymbol),
+            strategy: "RSI Convergence",
+            confidence: confidence,
+            stake: calculateStakeAmount(),
+          };
+        }
+        return null;
+      }
+
+      // Break and Retest Strategy
+      function analyzeBreakRetest() {
+        if (state.candles.length < 50) return null;
+
+        const recentCandles = state.candles.slice(-20);
+        const highs = recentCandles.map((c) => c.high);
+        const lows = recentCandles.map((c) => c.low);
+
+        const resistance = Math.max(...highs);
+        const support = Math.min(...lows);
+        const current = state.currentPrice;
+
+        let signal = null;
+        let confidence = 0;
+
+        if (current > resistance * 1.001) {
+          signal = "CALL";
+          confidence = 75;
+        } else if (current < support * 0.999) {
+          signal = "PUT";
+          confidence = 75;
+        }
+
+        if (signal) {
+          return {
+            type: getDerivContractType(signal, state.currentSymbol),
+            strategy: "Break & Retest",
+            confidence: confidence,
+            stake: calculateStakeAmount(),
+          };
+        }
+        return null;
+      }
+
+      // Fibonacci Retracement Strategy
+      function analyzeFibonacci() {
+        if (state.candles.length < 50) return null;
+
+        const recentCandles = state.candles.slice(-30);
+        const high = Math.max(...recentCandles.map((c) => c.high));
+        const low = Math.min(...recentCandles.map((c) => c.low));
+        const range = high - low;
+
+        const fib618 = high - range * 0.618;
+        const fib382 = high - range * 0.382;
+        const current = state.currentPrice;
+
+        let signal = null;
+        let confidence = 0;
+
+        if (Math.abs(current - fib618) / current < 0.001) {
+          signal = "CALL";
+          confidence = 80;
+        } else if (Math.abs(current - fib382) / current < 0.001) {
+          signal = "PUT";
+          confidence = 80;
+        }
+
+        if (signal) {
+          return {
+            type: getDerivContractType(signal, state.currentSymbol),
+            strategy: "Fibonacci",
+            confidence: confidence,
+            stake: calculateStakeAmount(),
+          };
+        }
+        return null;
+      }
+
+      // Display trading signal
+      function displaySignal(signal) {
+        const signalPanel = document.getElementById("signalPanel");
+        const signalDiv = document.createElement("div");
+        signalDiv.className = "bg-gray-700 rounded-lg p-3 slide-in";
+
+        const color =
+          signal.type === "CALL" ? "text-green-400" : "text-red-400";
+        const arrow = signal.type === "CALL" ? "📈" : "📉";
+
+        signalDiv.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="text-lg font-bold ${color}">${arrow} ${
+          signal.type
+        }</span>
+                        <div class="text-xs text-gray-400">${
+                          signal.strategy
+                        }</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm font-bold">${signal.confidence.toFixed(
+                          0
+                        )}%</div>
+                        <div class="text-xs text-gray-400">Confidence</div>
+                    </div>
+                </div>
+            `;
+
+        if (signalPanel.firstChild?.textContent.includes("No signals")) {
+          signalPanel.innerHTML = "";
+        }
+
+        signalPanel.insertBefore(signalDiv, signalPanel.firstChild);
+
+        // Keep only last 5 signals
+        while (signalPanel.children.length > 5) {
+          signalPanel.removeChild(signalPanel.lastChild);
+        }
+
+        if (document.getElementById("notifySignals").checked) {
+          showNotification(
+            `${signal.type} signal detected (${signal.confidence.toFixed(
+              0
+            )}% confidence)`,
+            "info"
+          );
+        }
+      }
+
+      // Get proper contract type for Deriv API
+      function getDerivContractType(signalType, symbol) {
+        // For synthetic indices, use CALL/PUT
+        if (
+          symbol.startsWith("R_") ||
+          symbol.includes("BOOM") ||
+          symbol.includes("CRASH")
+        ) {
+          return signalType === "CALL" ? "CALL" : "PUT";
+        }
+
+        // For forex, use CALL/PUT for options trading
+        // Or use RISE/FALL for up/down contracts
+        return signalType === "CALL" ? "CALL" : "PUT";
+      }
+
+      // Execute trade - FIXED VERSION
+      function executeTrade(type, stake) {
+        if (!state.connected || !state.currentSymbol) {
+          showNotification("Not connected or no symbol selected", "error");
+          return;
+        }
+
+        // Convert CALL/PUT to proper Deriv contract types
+        let contractType;
+        if (type === "CALL") {
+          contractType = "CALL"; // For binary options
+        } else if (type === "PUT") {
+          contractType = "PUT"; // For binary options
+        }
+
+        const duration = 5; // 5 minutes (5 ticks for volatility indices)
+        const durationUnit =
+          state.currentSymbol.startsWith("R_") ||
+          state.currentSymbol.includes("BOOM") ||
+          state.currentSymbol.includes("CRASH")
+            ? "t"
+            : "m";
+
+        // Get account currency from balance
+        const accountCurrency =
+          document.getElementById("accountBalance").textContent.split(" ")[0] ||
+          "USD";
+
+        // Create proposal request
+        const proposalRequest = {
+          proposal: 1,
+          amount: stake,
+          basis: "stake",
+          contract_type: contractType,
+          currency: accountCurrency,
+          duration: duration,
+          duration_unit: durationUnit,
+          symbol: state.currentSymbol,
+        };
+
+        console.log("📤 Sending proposal:", proposalRequest);
+
+        // Send proposal
+        state.ws.send(JSON.stringify(proposalRequest));
+
+        // Set up one-time listener for proposal response
+        const messageHandler = (msg) => {
+          try {
+            const data = JSON.parse(msg.data);
+            console.log("📥 Received:", data.msg_type, data);
+
+            // Handle proposal response
+            if (data.msg_type === "proposal") {
+              if (data.error) {
+                console.error("❌ Proposal error:", data.error);
+                showNotification(
+                  "Trade proposal failed: " + data.error.message,
+                  "error"
+                );
+                state.ws.removeEventListener("message", messageHandler);
+                return;
+              }
+
+              if (data.proposal && data.proposal.id) {
+                console.log("✅ Proposal accepted, ID:", data.proposal.id);
+
+                // Buy the contract
+                const buyRequest = {
+                  buy: data.proposal.id,
+                  price: stake,
+                };
+
+                console.log("📤 Buying contract:", buyRequest);
+                state.ws.send(JSON.stringify(buyRequest));
+              }
+            }
+
+            // Handle buy response
+            if (data.msg_type === "buy") {
+              if (data.error) {
+                console.error("❌ Buy error:", data.error);
+                showNotification(
+                  "Trade execution failed: " + data.error.message,
+                  "error"
+                );
+              } else if (data.buy) {
+                console.log("✅ Trade executed successfully!", data.buy);
+                handleTradeResponse(data);
+              }
+              state.ws.removeEventListener("message", messageHandler);
+            }
+
+            // Handle other errors
+            if (data.error && !["proposal", "buy"].includes(data.msg_type)) {
+              console.error("❌ API Error:", data.error);
+            }
+          } catch (e) {
+            console.error("Parse error:", e);
+          }
+        };
+
+        // Add temporary message listener
+        state.ws.addEventListener("message", messageHandler);
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          state.ws.removeEventListener("message", messageHandler);
+        }, 10000);
+      }
+      // Handle trade response
+
+      function handleTradeResponse(data) {
+        if (data.buy) {
+          const trade = {
+            id: data.buy.contract_id,
+            type: data.buy.contract_type,
+            stake: data.buy.buy_price,
+            symbol: state.currentSymbol,
+            entry: state.currentPrice,
+            time: new Date(),
+            status: "open",
+          };
+
+          state.activePositions.push(trade);
+          state.trades.push(trade);
+          state.stats.totalTrades++;
+          state.stats.todayTrades++;
+
+          updateActivePositions();
+          updateTradeHistory();
+          updateStatistics();
+
+          if (document.getElementById("notifyTrades").checked) {
+            showNotification(
+              `Trade executed: ${trade.type} $${trade.stake}`,
+              "success"
+            );
+          }
+
+          // Subscribe to contract updates
+          state.ws.send(
+            JSON.stringify({
+              proposal_open_contract: 1,
+              contract_id: trade.id,
+              subscribe: 1,
+            })
+          );
+        }
+      }
+
+      // Handle contract updates
+      function handleContractUpdate(contract) {
+        const position = state.activePositions.find(
+          (p) => p.id === contract.contract_id
+        );
+        if (!position) return;
+
+        position.current = contract.current_spot;
+        position.profit = contract.profit;
+
+        if (contract.is_sold) {
+          position.status = contract.profit > 0 ? "won" : "lost";
+          position.exit = contract.exit_tick;
+          position.closeTime = new Date();
+
+          if (contract.profit > 0) {
+            state.stats.wins++;
+          } else {
+            state.stats.losses++;
+          }
+          state.stats.profitLoss += contract.profit;
+
+          state.activePositions = state.activePositions.filter(
+            (p) => p.id !== contract.contract_id
+          );
+
+          if (document.getElementById("notifyTrades").checked) {
+            const result = contract.profit > 0 ? "Won" : "Lost";
+            showNotification(
+              `Trade ${result}: $${Math.abs(contract.profit).toFixed(2)}`,
+              contract.profit > 0 ? "success" : "error"
+            );
+          }
+        }
+
+        updateActivePositions();
+        updateStatistics();
+      }
+
+      // Risk Management Check
+      function checkRiskManagement() {
+        // Check max concurrent trades
+        if (state.activePositions.length >= state.settings.maxConcurrent) {
+          return false;
+        }
+
+        // Check daily loss limit
+        const todayLoss = state.trades
+          .filter(
+            (t) =>
+              t.time.toDateString() === new Date().toDateString() &&
+              t.profit < 0
+          )
+          .reduce((sum, t) => sum + Math.abs(t.profit || 0), 0);
+
+        if (todayLoss >= state.settings.dailyLossLimit) {
+          if (state.autoTrading) {
+            toggleAutoTrading();
+            showNotification(
+              "Daily loss limit reached. Auto-trading stopped.",
+              "warning"
+            );
+          }
+          return false;
+        }
+
+        return true;
+      }
+
+      // Calculate stake amount based on risk settings
+      function calculateStakeAmount() {
+        const balance =
+          parseFloat(
+            document
+              .getElementById("accountBalance")
+              .textContent.replace("$", "")
+          ) || 100;
+        const stake = (balance * state.settings.maxRisk) / 100;
+        return Math.max(1, Math.min(stake, 100)); // Min $1, Max $100
+      }
+
+      // Update price display
+      function updatePriceDisplay() {
+        document.getElementById("currentPrice").textContent =
+          state.currentPrice.toFixed(5);
+
+        if (state.priceHistory.length > 1) {
+          const prev = state.priceHistory[state.priceHistory.length - 2].price;
+          const change = ((state.currentPrice - prev) / prev) * 100;
+          const changeEl = document.getElementById("priceChange");
+          changeEl.textContent =
+            (change >= 0 ? "+" : "") + change.toFixed(2) + "%";
+          changeEl.className =
+            change >= 0 ? "text-green-400 text-sm" : "text-red-400 text-sm";
+        }
+      }
+
+      // Update active positions display
+      function updateActivePositions() {
+        const container = document.getElementById("activePositions");
+
+        if (state.activePositions.length === 0) {
+          container.innerHTML =
+            '<div class="text-gray-400 text-center py-4 text-sm">No active positions</div>';
+          return;
+        }
+
+        container.innerHTML = state.activePositions
+          .map((pos) => {
+            const profitClass =
+              (pos.profit || 0) >= 0 ? "text-green-400" : "text-red-400";
+            return `
+                    <div class="bg-gray-700 rounded-lg p-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold">${pos.type}</span>
+                            <span class="${profitClass} font-bold">$${(
+              pos.profit || 0
+            ).toFixed(2)}</span>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                            <div>Entry: ${pos.entry.toFixed(5)}</div>
+                            <div>Current: ${(pos.current || pos.entry).toFixed(
+                              5
+                            )}</div>
+                        </div>
+                    </div>
+                `;
+          })
+          .join("");
+      }
+
+      // Update trade history
+      function updateTradeHistory() {
+        const container = document.getElementById("tradeHistory");
+        const closedTrades = state.trades
+          .filter((t) => t.status !== "open")
+          .slice(-10)
+          .reverse();
+
+        if (closedTrades.length === 0) {
+          container.innerHTML =
+            '<div class="text-gray-400 text-center py-4 text-sm">No trades yet</div>';
+          return;
+        }
+
+        container.innerHTML = closedTrades
+          .map((trade) => {
+            const profitClass =
+              (trade.profit || 0) >= 0 ? "text-green-400" : "text-red-400";
+            const statusIcon = (trade.profit || 0) >= 0 ? "✅" : "❌";
+
+            return `
+                    <div class="bg-gray-700 rounded-lg p-3">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="font-bold">${statusIcon} ${
+              trade.type
+            }</div>
+                                <div class="text-xs text-gray-400">${trade.time.toLocaleTimeString()}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="${profitClass} font-bold">$${(
+              trade.profit || 0
+            ).toFixed(2)}</div>
+                                <div class="text-xs text-gray-400">Stake: $${
+                                  trade.stake
+                                }</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+          })
+          .join("");
+      }
+
+      // Update statistics
+      function updateStatistics() {
+        document.getElementById("totalTrades").textContent =
+          state.stats.totalTrades;
+
+        const winRate =
+          state.stats.totalTrades > 0
+            ? (state.stats.wins / state.stats.totalTrades) * 100
+            : 0;
+        document.getElementById("winRate").textContent =
+          winRate.toFixed(1) + "%";
+
+        const plEl = document.getElementById("profitLoss");
+        plEl.textContent = "$" + state.stats.profitLoss.toFixed(2);
+        plEl.className =
+          state.stats.profitLoss >= 0
+            ? "font-bold text-green-400"
+            : "font-bold text-red-400";
+
+        document.getElementById("todayTrades").textContent =
+          state.stats.todayTrades;
+      }
+
+      // Toggle auto trading
+      function toggleAutoTrading() {
+        state.autoTrading = !state.autoTrading;
+        const btn = document.getElementById("autoTradeBtn");
+
+        if (state.autoTrading) {
+          btn.textContent = "⏸️ Stop Auto Trading";
+          btn.className =
+            "w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg font-semibold transition";
+          showNotification("Auto-trading started", "success");
+        } else {
+          btn.textContent = "▶️ Start Auto Trading";
+          btn.className =
+            "w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg font-semibold transition";
+          showNotification("Auto-trading stopped", "info");
+        }
+      }
+
+      // Execute manual trade
+      function executeManualTrade() {
+        const type = document.getElementById("manualTradeType").value;
+        const stake = parseFloat(document.getElementById("manualStake").value);
+        const duration = parseInt(
+          document.getElementById("manualDuration").value
+        );
+
+        if (!stake || stake < 1) {
+          showNotification("Please enter a valid stake amount", "error");
+          return;
+        }
+
+        executeTrade(type, stake);
+        hideModal("manualTradeModal");
+      }
+
+      // Load symbols based on market type
+      function loadSymbols() {
+        const marketType = document.getElementById("marketType").value;
+        const symbolSelect = document.getElementById("symbolSelect");
+
+        symbolSelect.innerHTML = '<option value="">Select Symbol</option>';
+        symbols[marketType].forEach((symbol) => {
+          const option = document.createElement("option");
+          option.value = symbol.value;
+          option.textContent = symbol.label;
+          symbolSelect.appendChild(option);
+        });
+      }
+
+      // Change symbol
+      function changeSymbol() {
+        const symbol = document.getElementById("symbolSelect").value;
+        if (!symbol || !state.connected) return;
+
+        state.currentSymbol = symbol;
+        state.priceHistory = [];
+        state.candles = [];
+
+        const timeframe = document.getElementById("timeframe").value;
+        document.getElementById("chartTitle").textContent =
+          document.getElementById("symbolSelect").selectedOptions[0].text;
+
+        // Unsubscribe from previous
+        if (state.tickSubscription) {
+          state.ws.send(JSON.stringify({ forget: state.tickSubscription }));
+        }
+
+        // Subscribe to ticks or candles
+        if (timeframe === "tick") {
+          state.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+        } else {
+          state.ws.send(
+            JSON.stringify({
+              ticks_history: symbol,
+              adjust_start_time: 1,
+              count: 200,
+              end: "latest",
+              granularity: parseInt(timeframe),
+              style: "candles",
+              subscribe: 1,
+            })
+          );
+        }
+
+        showNotification(
+          `Switched to ${
+            document.getElementById("symbolSelect").selectedOptions[0].text
+          }`,
+          "info"
+        );
+      }
+
+      // Change timeframe
+      function changeTimeframe() {
+        if (state.currentSymbol) {
+          changeSymbol(); // Reload with new timeframe
+        }
+      }
+
+      // Export trade history
+      function exportHistory() {
+        if (state.trades.length === 0) {
+          showNotification("No trade history to export", "warning");
+          return;
+        }
+
+        const csv = ["Time,Symbol,Type,Stake,Entry,Exit,Profit,Status\n"];
+        state.trades.forEach((trade) => {
+          csv.push(
+            `${trade.time.toLocaleString()},${trade.symbol},${trade.type},${
+              trade.stake
+            },${trade.entry},${trade.exit || "N/A"},${trade.profit || 0},${
+              trade.status
+            }\n`
+          );
+        });
+
+        const blob = new Blob(csv, { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `trade_history_${
+          new Date().toISOString().split("T")[0]
+        }.csv`;
+        a.click();
+
+        showNotification("Trade history exported", "success");
+      }
+
+      // Update connection status
+      function updateConnectionStatus(connected) {
+        const statusDot = document.getElementById("connectionStatus");
+        const statusText = document.getElementById("connectionText");
+
+        if (connected) {
+          statusDot.className = "status-dot pulse-anim bg-green-500";
+          statusText.textContent = "Connected";
+          statusText.className = "text-sm text-green-400";
+        } else {
+          statusDot.className = "status-dot bg-red-500";
+          statusText.textContent = "Disconnected";
+          statusText.className = "text-sm text-red-400";
+        }
+      }
+
+      // Disconnect from Deriv
+      function disconnect() {
+        if (state.ws) {
+          state.autoTrading = false;
+          state.ws.close();
+          state.ws = null;
+          state.connected = false;
+          updateConnectionStatus(false);
+          document.getElementById("mainContent").style.display = "none";
+          document.getElementById("connectionModal").style.display = "flex";
+          showNotification("Disconnected from Deriv", "info");
+        }
+      }
+      // Modal functions
+      function showModal(modalId) {
+        document.getElementById(modalId).classList.remove("hidden");
+      }
+
+      function hideModal(modalId) {
+        document.getElementById(modalId).classList.add("hidden");
+      }
+
+      // Save settings
+      function saveSettings() {
+        state.settings.maxRisk = parseFloat(
+          document.getElementById("maxRisk").value
+        );
+        state.settings.dailyLossLimit = parseFloat(
+          document.getElementById("dailyLossLimit").value
+        );
+        state.settings.maxConcurrent = parseInt(
+          document.getElementById("maxConcurrent").value
+        );
+        state.settings.stopLoss = parseFloat(
+          document.getElementById("stopLoss").value
+        );
+        state.settings.takeProfit = parseFloat(
+          document.getElementById("takeProfit").value
+        );
+        state.settings.trailingStop = parseFloat(
+          document.getElementById("trailingStop").value
+        );
+        state.settings.signalMode = document.querySelector(
+          'input[name="signalMode"]:checked'
+        ).value;
+        state.settings.requiredConfirmations = parseInt(
+          document.getElementById("requiredConfirmations").value
+        );
+
+        hideModal("settingsModal");
+        showNotification("Settings saved successfully", "success");
+      }
+
+      // Save strategy settings
+      function saveStrategySettings() {
+        state.settings.macd = {
+          fast: parseInt(document.getElementById("macdFast").value),
+          slow: parseInt(document.getElementById("macdSlow").value),
+          signal: parseInt(document.getElementById("macdSignal").value),
+        };
+        state.settings.rsi = {
+          period: parseInt(document.getElementById("rsiPeriod").value),
+          overbought: parseInt(document.getElementById("rsiOverbought").value),
+          oversold: parseInt(document.getElementById("rsiOversold").value),
+        };
+        state.settings.ema = {
+          fast: parseInt(document.getElementById("emaFast").value),
+          slow: parseInt(document.getElementById("emaSlow").value),
+        };
+
+        hideModal("strategySettingsModal");
+        showNotification("Strategy settings saved", "success");
+
+        // Recalculate indicators with new settings
+        if (state.candles.length > 0) {
+          calculateIndicators();
+        }
+      }
+
+      // Notification system
+      function showNotification(message, type = "info") {
+        const container = document.getElementById("notificationContainer");
+        const notification = document.createElement("div");
+
+        const colors = {
+          success: "bg-green-600",
+          error: "bg-red-600",
+          warning: "bg-yellow-600",
+          info: "bg-blue-600",
+        };
+
+        const icons = {
+          success: "✓",
+          error: "✕",
+          warning: "⚠",
+          info: "ℹ",
+        };
+
+        notification.className = `${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg mb-4 slide-in flex items-center space-x-3`;
+        notification.innerHTML = `
+            <span class="text-2xl">${icons[type]}</span>
+            <span>${message}</span>
+        `;
+
+        container.appendChild(notification);
+
+        setTimeout(() => {
+          notification.style.opacity = "0";
+          setTimeout(() => notification.remove(), 300);
+        }, 5000);
+      }
+    </script>
+  </body>
+</html>

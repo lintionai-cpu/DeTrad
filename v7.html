@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Even/Odd - Parity Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .status-connected {
+        color: #10b981;
+      }
+      .status-disconnected {
+        color: #ef4444;
+      }
+      .profit {
+        color: #10b981;
+      }
+      .loss {
+        color: #ef4444;
+      }
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+      }
+      .toast {
+        background: linear-gradient(135deg, #1f2937, #111827);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease;
+        display: flex;
+        gap: 12px;
+      }
+      .toast.success {
+        border-left: 4px solid #10b981;
+      }
+      .toast.error {
+        border-left: 4px solid #ef4444;
+      }
+      .toast.warning {
+        border-left: 4px solid #f59e0b;
+      }
+      .toast.info {
+        border-left: 4px solid #3b82f6;
+      }
+      @keyframes slideIn {
+        from {
+          transform: translateX(450px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .pulse {
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .glow {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .strategy-btn {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+      .strategy-btn.active {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-color: #34d399;
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+      }
+      .parity-badge {
+        background: linear-gradient(135deg, #10b981, #059669);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+      .even-badge {
+        background: #3b82f6;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+      .odd-badge {
+        background: #f59e0b;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen p-4"
+  >
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-green-900"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h1
+              class="text-3xl font-bold flex items-center gap-3"
+              style="
+                background: linear-gradient(135deg, #10b981, #059669);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+              "
+            >
+              🎲 EVEN/ODD - Parity Edition<span class="parity-badge">Parity Edition</span>
+            </h1>
+            <p class="text-sm text-gray-400 mt-1">
+              Volatility 10 - Parity Detection Strategies (Slow & Smooth)
+            </p>
+          </div>
+          <div
+            class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700"
+          >
+            <span
+              id="connectionDot"
+              class="w-3 h-3 rounded-full bg-red-500"
+            ></span>
+            <span
+              id="connectionStatus"
+              class="status-disconnected font-semibold"
+              >Disconnected</span
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4">
+          <div
+            class="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-blue-200">Balance</p>
+            <p id="balance" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-purple-200">Session PnL</p>
+            <p id="totalPnl" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-green-600 to-green-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-green-200">Win Rate</p>
+            <p id="winRate" class="text-2xl font-bold">0%</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-orange-600 to-orange-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-orange-200">Trades</p>
+            <p id="totalTrades" class="text-2xl font-bold">0</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3 mt-3">
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Current Stake</p>
+            <p id="currentStakeDisplay" class="text-lg font-bold text-blue-400">
+              $0.00
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Signal</p>
+            <p id="currentSignal" class="text-lg font-bold text-yellow-400">
+              WAITING
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Parity Ratio</p>
+            <p id="parityRatio" class="text-lg font-bold text-green-400">-</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Trades Remaining</p>
+            <p id="tradesRemaining" class="text-lg font-bold text-purple-400">
+              ∞
+            </p>
+          </div>
+        </div>
+
+        <!-- Parity History Display -->
+        <div class="mt-4 bg-gray-700 bg-opacity-50 p-4 rounded-lg">
+          <p class="text-xs font-semibold mb-2">📊 Last 20 Digits (Parity):</p>
+          <div id="parityHistory" class="flex gap-1 flex-wrap text-xs">
+            <span class="text-gray-500">Waiting for data...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Connection -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-3">🔐 API Connection</h2>
+        <div
+          class="bg-green-900 bg-opacity-30 border border-green-600 rounded-lg p-3 mb-4 text-sm"
+        >
+          <p class="font-semibold mb-1">✅ LOW RISK - SMOOTH STRATEGIES</p>
+          <p class="text-xs text-gray-300">
+            These parity strategies are designed for slower, more predictable
+            trading on Volatility 10 Index
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <input
+            type="password"
+            id="apiToken"
+            placeholder="Enter Deriv API Token"
+            class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+          />
+          <button
+            onclick="connectAPI()"
+            id="connectBtn"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            🔌 Connect
+          </button>
+          <button
+            onclick="disconnectAPI()"
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      <!-- Risk Management -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">⚠️ Risk Management</h2>
+        <div class="grid grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm mb-2">Initial Stake ($)</label>
+            <input
+              type="number"
+              id="initialStake"
+              min="0.35"
+              step="0.01"
+              value="1"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Loss ($)</label>
+            <input
+              type="number"
+              id="maxLoss"
+              min="1"
+              value="50"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Profit ($)</label>
+            <input
+              type="number"
+              id="maxProfit"
+              min="1"
+              value="100"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Trades (0=∞)</label>
+            <input
+              type="number"
+              id="maxTrades"
+              min="0"
+              value="0"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+        </div>
+        <div
+          class="mt-4 bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-lg"
+        >
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              id="enableMartingale"
+              class="w-5 h-5 cursor-pointer"
+            />
+            <span class="font-semibold"
+              >Enable Martingale (Doubles stake on loss)</span
+            >
+          </label>
+          <div class="mt-3">
+            <label class="block text-sm mb-2">Max Martingale Steps</label>
+            <input
+              type="number"
+              id="maxMartingaleSteps"
+              min="1"
+              max="5"
+              value="3"
+              class="w-full bg-gray-600 rounded-lg px-3 py-2"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- PARITY STRATEGIES -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-green-900"
+      >
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+          🎲 Volatility 10 - Even/Odd Parity Strategies
+          <span class="parity-badge">SMOOTH</span>
+        </h2>
+
+        <!-- Strategy Selector -->
+        <div class="grid grid-cols-5 gap-3 mb-6">
+          <button
+            onclick="selectStrategy('parityBias')"
+            id="stratBtn-parityBias"
+            class="strategy-btn active p-4 rounded-xl text-left"
+          >
+            <p class="font-bold text-sm">📊 Parity Bias</p>
+            <p class="text-xs mt-1">20-tick detection</p>
+          </button>
+          <button
+            onclick="selectStrategy('shortStreak')"
+            id="stratBtn-shortStreak"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold text-sm">🔄 Short Streak</p>
+            <p class="text-xs mt-1">3-digit pattern</p>
+          </button>
+          <button
+            onclick="selectStrategy('parityReversion')"
+            id="stratBtn-parityReversion"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold text-sm">↩️ Reversion</p>
+            <p class="text-xs mt-1">4-consecutive fade</p>
+          </button>
+          <button
+            onclick="selectStrategy('consolidationFade')"
+            id="stratBtn-consolidationFade"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold text-sm">⚖️ Consolidation</p>
+            <p class="text-xs mt-1">6-8 tick fade</p>
+          </button>
+          <button
+            onclick="selectStrategy('momentumParity')"
+            id="stratBtn-momentumParity"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold text-sm">⚡ Momentum</p>
+            <p class="text-xs mt-1">Price move trigger</p>
+          </button>
+        </div>
+
+        <!-- Parity Bias Strategy -->
+        <div
+          id="parityBiasStrategy"
+          class="bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">
+            📊 Parity Bias Detection Strategy
+          </h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Tracks last N ticks, calculates even vs odd ratio. Enters ODD if
+            even ratio > threshold, EVEN if odd ratio > threshold
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Lookback Window (Ticks)</label
+              >
+              <input
+                type="number"
+                id="biasLookback"
+                min="15"
+                max="25"
+                value="20"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Number of past ticks to analyze
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Ratio Threshold</label
+              >
+              <input
+                type="number"
+                id="biasThreshold"
+                min="0.55"
+                max="0.75"
+                step="0.05"
+                value="0.65"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Minimum bias ratio to trigger signal
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="biasDuration"
+                min="1"
+                max="5"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Position hold time</p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Bias Status:</p>
+            <div class="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                Even Count:
+                <span id="biasEvenCount" class="font-bold text-blue-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Odd Count:
+                <span id="biasOddCount" class="font-bold text-yellow-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Even Ratio:
+                <span id="biasEvenRatio" class="font-bold text-blue-400"
+                  >0%</span
+                >
+              </div>
+              <div>
+                Odd Ratio:
+                <span id="biasOddRatio" class="font-bold text-yellow-400"
+                  >0%</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Short Parity Streak Strategy -->
+        <div
+          id="shortStreakStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">
+            🔄 Short Parity Streak Strategy
+          </h3>
+          <p class="text-sm text-gray-300 mb-4">
+            If last N digits are all EVEN → trade ODD next tick (and vice versa)
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Streak Length</label
+              >
+              <input
+                type="number"
+                id="streakLength"
+                min="3"
+                max="6"
+                value="3"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Consecutive same parity to trigger
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Response Delay (Ticks)</label
+              >
+              <input
+                type="number"
+                id="streakDelay"
+                min="0"
+                max="3"
+                value="0"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Wait N ticks before entry
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="streakDuration"
+                min="1"
+                max="3"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Position hold time</p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Streak Status:</p>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                Current Streak:
+                <span id="currentStreak" class="font-bold text-blue-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Parity Type:
+                <span id="streakParity" class="font-bold text-yellow-400"
+                  >-</span
+                >
+              </div>
+              <div>
+                Signal Ready:
+                <span id="streakReady" class="font-bold text-green-400"
+                  >NO</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parity Reversion Strategy -->
+        <div
+          id="parityReversionStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">
+            ↩️ Parity Reversion on Micro-Bias Strategy
+          </h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Detects N consecutive EVEN/ODD digits → trades opposite parity
+            immediately
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Consecutive Count</label
+              >
+              <input
+                type="number"
+                id="reversionCount"
+                min="4"
+                max="7"
+                value="4"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Same parity streak to trigger
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="reversionDuration"
+                min="1"
+                max="3"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Position hold time</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Cooldown (Ticks)</label
+              >
+              <input
+                type="number"
+                id="reversionCooldown"
+                min="1"
+                max="10"
+                value="3"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Wait after trade before next signal
+              </p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Reversion Status:</p>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                Consecutive:
+                <span id="reversionStreak" class="font-bold text-blue-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Type:
+                <span id="reversionType" class="font-bold text-yellow-400"
+                  >-</span
+                >
+              </div>
+              <div>
+                Cooldown:
+                <span id="reversionCooldownLeft" class="font-bold text-red-400"
+                  >0</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Consolidation Fade Strategy -->
+        <div
+          id="consolidationFadeStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">
+            ⚖️ Consolidation Parity Fade Strategy
+          </h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Last N digits fluctuate between EVEN/ODD → waits for two matching
+            parity → trades opposite
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Lookback Length (Ticks)</label
+              >
+              <input
+                type="number"
+                id="consolidationLookback"
+                min="6"
+                max="10"
+                value="8"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Period to detect fluctuation
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Matching Sequence</label
+              >
+              <input
+                type="number"
+                id="matchingSequence"
+                min="2"
+                max="3"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Consecutive same parity trigger
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="consolidationDuration"
+                min="1"
+                max="3"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Position hold time</p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Consolidation Status:</p>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                Fluctuation:
+                <span id="isFluctuating" class="font-bold text-blue-400"
+                  >NO</span
+                >
+              </div>
+              <div>
+                Matching Count:
+                <span id="matchCount" class="font-bold text-yellow-400">0</span>
+              </div>
+              <div>
+                Signal:
+                <span id="consolidationSignal" class="font-bold text-green-400"
+                  >-</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Momentum Parity Strategy -->
+        <div
+          id="momentumParityStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">
+            ⚡ Tick Momentum Parity Strategy
+          </h3>
+          <p class="text-sm text-gray-300 mb-4">
+            If tick price move > threshold → parity of last tick dictates
+            trading opposite parity
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Price Move Threshold</label
+              >
+              <input
+                type="number"
+                id="momentumThreshold"
+                min="0.01"
+                max="0.10"
+                step="0.01"
+                value="0.03"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Minimum price change to trigger
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="momentumDuration"
+                min="1"
+                max="3"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Position hold time</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Cooldown (Ticks)</label
+              >
+              <input
+                type="number"
+                id="momentumCooldown"
+                min="1"
+                max="5"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Wait after trade</p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Momentum Status:</p>
+            <div class="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                Last Move:
+                <span id="lastPriceMove" class="font-bold text-blue-400"
+                  >0.00</span
+                >
+              </div>
+              <div>
+                Last Parity:
+                <span id="lastParity" class="font-bold text-yellow-400">-</span>
+              </div>
+              <div>
+                Cooldown:
+                <span id="momentumCooldownLeft" class="font-bold text-red-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Signal:
+                <span id="momentumSignal" class="font-bold text-green-400"
+                  >-</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">🎮 Trading Controls</h2>
+        <div class="grid grid-cols-4 gap-3">
+          <button
+            onclick="startAutoTrading()"
+            id="startBtn"
+            class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            🚀 START
+          </button>
+          <button
+            onclick="stopAutoTrading()"
+            id="stopBtn"
+            disabled
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            ⛔ STOP
+          </button>
+          <button
+            onclick="executeSingleTrade()"
+            id="singleBtn"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            ⚡ SINGLE
+          </button>
+          <button
+            onclick="resetSession()"
+            class="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            🔄 RESET
+          </button>
+        </div>
+      </div>
+
+      <!-- Trade History -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">📜 Trade History</h2>
+          <button
+            onclick="exportHistory()"
+            class="bg-purple-600 px-4 py-2 rounded-lg font-semibold"
+          >
+            📥 Export CSV
+          </button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-700">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="p-3 text-left">Time</th>
+                <th class="p-3 text-left">Strategy</th>
+                <th class="p-3 text-left">Signal</th>
+                <th class="p-3 text-left">Stake</th>
+                <th class="p-3 text-left">Result</th>
+                <th class="p-3 text-left">PnL</th>
+              </tr>
+            </thead>
+            <tbody id="tradeHistory" class="divide-y divide-gray-700">
+              <tr>
+                <td colspan="6" class="p-8 text-center text-gray-500">
+                  No trades yet - Start trading!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Global Variables
+      let ws,
+        isConnected = false,
+        isTrading = false,
+        isProcessing = false,
+        balance = 0,
+        totalPnl = 0,
+        currentStake = 0,
+        martingaleStep = 0;
+      let tradeHistory = [],
+        tickData = [],
+        prices = [],
+        digits = [],
+        totalTrades = 0,
+        wins = 0,
+        losses = 0,
+        currentStrategy = "parityBias";
+
+      // Strategy States
+      let biasState = { evenCount: 0, oddCount: 0, evenRatio: 0, oddRatio: 0 };
+      let streakState = { currentStreak: 0, parityType: null, delayTicks: 0 };
+      let reversionState = { streak: 0, type: null, cooldownLeft: 0 };
+      let consolidationState = {
+        isFluctuating: false,
+        matchCount: 0,
+        lastParity: null,
+      };
+      let momentumState = { lastMove: 0, lastParity: null, cooldownLeft: 0 };
+
+      function showToast(m, t = "info") {
+        const c = document.getElementById("toastContainer"),
+          d = document.createElement("div");
+        d.className = `toast ${t}`;
+        const i = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+        d.innerHTML = `<div class="text-2xl">${
+          i[t]
+        }</div><div><p class="font-bold text-sm">${t.toUpperCase()}</p><p class="text-sm">${m}</p></div>`;
+        c.appendChild(d);
+        setTimeout(() => d.remove(), 5000);
+      }
+
+      function getParity(price) {
+        const lastDigit = parseInt(price.toString().slice(-1));
+        return lastDigit % 2 === 0 ? "EVEN" : "ODD";
+      }
+
+      function connectAPI() {
+        const t = document.getElementById("apiToken").value.trim();
+        if (!t) {
+          showToast("Enter API token", "error");
+          return;
+        }
+        ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+        ws.onopen = () => ws.send(JSON.stringify({ authorize: t }));
+        ws.onmessage = (m) => handleWSMessage(JSON.parse(m.data));
+        ws.onerror = () => {
+          showToast("Connection error", "error");
+          updateConnectionStatus(false);
+        };
+        ws.onclose = () => {
+          updateConnectionStatus(false);
+          if (isTrading) stopAutoTrading();
+        };
+      }
+
+      function disconnectAPI() {
+        if (ws) ws.close();
+        stopAutoTrading();
+        updateConnectionStatus(false);
+        showToast("Disconnected", "info");
+      }
+
+      function updateConnectionStatus(c) {
+        isConnected = c;
+        document.getElementById("connectionStatus").textContent = c
+          ? "Connected"
+          : "Disconnected";
+        document.getElementById("connectionStatus").className = c
+          ? "status-connected font-semibold"
+          : "status-disconnected font-semibold";
+        document.getElementById(
+          "connectionDot"
+        ).className = `w-3 h-3 rounded-full ${
+          c ? "bg-green-500 glow" : "bg-red-500"
+        }`;
+      }
+
+      function handleWSMessage(d) {
+        if (d.error) {
+          showToast(d.error.message, "error");
+          return;
+        }
+        if (d.msg_type === "authorize" && d.authorize) {
+          isConnected = true;
+          balance = parseFloat(d.authorize.balance);
+          updateConnectionStatus(true);
+          updateBalance();
+          ws.send(JSON.stringify({ ticks: "R_10", subscribe: 1 }));
+          showToast("Connected to Volatility 10!", "success");
+        } else if (d.msg_type === "tick") handleTick(d.tick);
+        else if (d.msg_type === "proposal") handleProposal(d);
+        else if (d.msg_type === "buy") handleBuy(d);
+        else if (d.msg_type === "proposal_open_contract") handleContract(d);
+        else if (d.msg_type === "balance") {
+          balance = parseFloat(d.balance.balance);
+          updateBalance();
+        }
+      }
+
+      function handleTick(t) {
+        const price = parseFloat(t.quote);
+        prices.push(price);
+        if (prices.length > 50) prices.shift();
+        const digit = parseInt(price.toString().slice(-1));
+        digits.push(digit);
+        if (digits.length > 25) digits.shift();
+        tickData.push(t);
+        if (tickData.length > 50) tickData.shift();
+        updateParityHistory();
+        if (digits.length >= 5) analyzeMarket();
+      }
+
+      function updateParityHistory() {
+        const html = digits
+          .slice(-10)
+          .map((d) => {
+            const parity = d % 2 === 0 ? "EVEN" : "ODD";
+            const badge = parity === "EVEN" ? "even-badge" : "odd-badge";
+            return `<span class="${badge}">${d}</span>`;
+          })
+          .join(" ");
+        document.getElementById("parityHistory").innerHTML =
+          html || '<span class="text-gray-500">Waiting...</span>';
+      }
+
+      function analyzeMarket() {
+        if (currentStrategy === "parityBias") analyzeParityBias();
+        else if (currentStrategy === "shortStreak") analyzeShortStreak();
+        else if (currentStrategy === "parityReversion")
+          analyzeParityReversion();
+        else if (currentStrategy === "consolidationFade")
+          analyzeConsolidationFade();
+        else if (currentStrategy === "momentumParity") analyzeMomentumParity();
+      }
+
+      function analyzeParityBias() {
+        const lookback = parseInt(
+            document.getElementById("biasLookback").value
+          ),
+          threshold = parseFloat(
+            document.getElementById("biasThreshold").value
+          );
+        if (digits.length < lookback) return;
+        const window = digits.slice(-lookback);
+        let evenCnt = 0,
+          oddCnt = 0;
+        window.forEach((d) => {
+          if (d % 2 === 0) evenCnt++;
+          else oddCnt++;
+        });
+        const evenRatio = evenCnt / lookback,
+          oddRatio = oddCnt / lookback;
+        biasState = {
+          evenCount: evenCnt,
+          oddCount: oddCnt,
+          evenRatio: evenRatio,
+          oddRatio: oddRatio,
+        };
+        document.getElementById("biasEvenCount").textContent = evenCnt;
+        document.getElementById("biasOddCount").textContent = oddCnt;
+        document.getElementById("biasEvenRatio").textContent =
+          (evenRatio * 100).toFixed(1) + "%";
+        document.getElementById("biasOddRatio").textContent =
+          (oddRatio * 100).toFixed(1) + "%";
+        document.getElementById("parityRatio").textContent = `E:${(
+          evenRatio * 100
+        ).toFixed(0)}% O:${(oddRatio * 100).toFixed(0)}%`;
+        let signal = null;
+        if (evenRatio >= threshold) {
+          signal = "DIGITODD";
+          document.getElementById("currentSignal").textContent = "ODD";
+        } else if (oddRatio >= threshold) {
+          signal = "DIGITEVEN";
+          document.getElementById("currentSignal").textContent = "EVEN";
+        } else {
+          document.getElementById("currentSignal").textContent = "WAITING";
+        }
+        if (signal && isTrading && !isProcessing) executeTrade(signal);
+      }
+
+      function analyzeShortStreak() {
+        const len = parseInt(document.getElementById("streakLength").value),
+          delay = parseInt(document.getElementById("streakDelay").value);
+        if (digits.length < len) return;
+        if (streakState.delayTicks > 0) {
+          streakState.delayTicks--;
+          return;
+        }
+        const window = digits.slice(-len);
+        const firstParity = window[0] % 2 === 0 ? "EVEN" : "ODD";
+        let allSame = true;
+        for (let i = 1; i < window.length; i++) {
+          const parity = window[i] % 2 === 0 ? "EVEN" : "ODD";
+          if (parity !== firstParity) {
+            allSame = false;
+            break;
+          }
+        }
+        streakState.currentStreak = allSame ? len : 0;
+        streakState.parityType = allSame ? firstParity : null;
+        document.getElementById("currentStreak").textContent =
+          streakState.currentStreak;
+        document.getElementById("streakParity").textContent =
+          streakState.parityType || "-";
+        document.getElementById("streakReady").textContent = allSame
+          ? "YES"
+          : "NO";
+        if (allSame) {
+          const signal = firstParity === "EVEN" ? "DIGITODD" : "DIGITEVEN";
+          document.getElementById("currentSignal").textContent =
+            firstParity === "EVEN" ? "ODD" : "EVEN";
+          if (delay > 0) {
+            streakState.delayTicks = delay;
+          } else if (isTrading && !isProcessing) {
+            executeTrade(signal);
+            streakState.currentStreak = 0;
+          }
+        }
+      }
+
+      function analyzeParityReversion() {
+        if (reversionState.cooldownLeft > 0) {
+          reversionState.cooldownLeft--;
+          document.getElementById("reversionCooldownLeft").textContent =
+            reversionState.cooldownLeft;
+          return;
+        }
+        const count = parseInt(document.getElementById("reversionCount").value);
+        if (digits.length < count) return;
+        const window = digits.slice(-count);
+        const firstParity = window[0] % 2 === 0 ? "EVEN" : "ODD";
+        let allSame = true;
+        for (let i = 1; i < window.length; i++) {
+          const parity = window[i] % 2 === 0 ? "EVEN" : "ODD";
+          if (parity !== firstParity) {
+            allSame = false;
+            break;
+          }
+        }
+        reversionState.streak = allSame ? count : 0;
+        reversionState.type = allSame ? firstParity : null;
+        document.getElementById("reversionStreak").textContent =
+          reversionState.streak;
+        document.getElementById("reversionType").textContent =
+          reversionState.type || "-";
+        if (allSame) {
+          const signal = firstParity === "EVEN" ? "DIGITODD" : "DIGITEVEN";
+          document.getElementById("currentSignal").textContent =
+            firstParity === "EVEN" ? "ODD" : "EVEN";
+          if (isTrading && !isProcessing) {
+            executeTrade(signal);
+            reversionState.cooldownLeft = parseInt(
+              document.getElementById("reversionCooldown").value
+            );
+          }
+        }
+      }
+
+      function analyzeConsolidationFade() {
+        const lookback = parseInt(
+            document.getElementById("consolidationLookback").value
+          ),
+          matchSeq = parseInt(
+            document.getElementById("matchingSequence").value
+          );
+        if (digits.length < lookback) return;
+        const window = digits.slice(-lookback);
+        let changes = 0;
+        for (let i = 1; i < window.length; i++) {
+          const prev = window[i - 1] % 2 === 0 ? "EVEN" : "ODD";
+          const curr = window[i] % 2 === 0 ? "EVEN" : "ODD";
+          if (prev !== curr) changes++;
+        }
+        const isFluctuating = changes >= 3;
+        consolidationState.isFluctuating = isFluctuating;
+        document.getElementById("isFluctuating").textContent = isFluctuating
+          ? "YES"
+          : "NO";
+        if (isFluctuating) {
+          const recent = digits.slice(-matchSeq);
+          const firstParity = recent[0] % 2 === 0 ? "EVEN" : "ODD";
+          let matching = true;
+          for (let i = 1; i < recent.length; i++) {
+            const parity = recent[i] % 2 === 0 ? "EVEN" : "ODD";
+            if (parity !== firstParity) {
+              matching = false;
+              break;
+            }
+          }
+          if (matching) {
+            consolidationState.matchCount = matchSeq;
+            consolidationState.lastParity = firstParity;
+            const signal = firstParity === "EVEN" ? "DIGITODD" : "DIGITEVEN";
+            document.getElementById("matchCount").textContent = matchSeq;
+            document.getElementById("consolidationSignal").textContent =
+              firstParity === "EVEN" ? "ODD" : "EVEN";
+            document.getElementById("currentSignal").textContent =
+              firstParity === "EVEN" ? "ODD" : "EVEN";
+            if (isTrading && !isProcessing) executeTrade(signal);
+          } else {
+            document.getElementById("matchCount").textContent = 0;
+            document.getElementById("consolidationSignal").textContent = "-";
+          }
+        } else {
+          document.getElementById("matchCount").textContent = 0;
+          document.getElementById("consolidationSignal").textContent = "-";
+        }
+      }
+
+      function analyzeMomentumParity() {
+        if (momentumState.cooldownLeft > 0) {
+          momentumState.cooldownLeft--;
+          document.getElementById("momentumCooldownLeft").textContent =
+            momentumState.cooldownLeft;
+          return;
+        }
+        const threshold = parseFloat(
+          document.getElementById("momentumThreshold").value
+        );
+        if (prices.length < 2) return;
+        const move = Math.abs(
+          prices[prices.length - 1] - prices[prices.length - 2]
+        );
+        momentumState.lastMove = move;
+        const lastDigit = digits[digits.length - 1];
+        const lastParity = lastDigit % 2 === 0 ? "EVEN" : "ODD";
+        momentumState.lastParity = lastParity;
+        document.getElementById("lastPriceMove").textContent = move.toFixed(3);
+        document.getElementById("lastParity").textContent = lastParity;
+        if (move >= threshold) {
+          const signal = lastParity === "EVEN" ? "DIGITODD" : "DIGITEVEN";
+          document.getElementById("momentumSignal").textContent =
+            lastParity === "EVEN" ? "ODD" : "EVEN";
+          document.getElementById("currentSignal").textContent =
+            lastParity === "EVEN" ? "ODD" : "EVEN";
+          if (isTrading && !isProcessing) {
+            executeTrade(signal);
+            momentumState.cooldownLeft = parseInt(
+              document.getElementById("momentumCooldown").value
+            );
+          }
+        } else {
+          document.getElementById("momentumSignal").textContent = "-";
+        }
+      }
+
+      async function executeTrade(type) {
+        isProcessing = true;
+        document.getElementById("singleBtn").disabled = true;
+        const stake =
+          currentStake ||
+          parseFloat(document.getElementById("initialStake").value);
+        let duration = 1;
+        if (currentStrategy === "parityBias")
+          duration = parseInt(document.getElementById("biasDuration").value);
+        else if (currentStrategy === "shortStreak")
+          duration = parseInt(document.getElementById("streakDuration").value);
+        else if (currentStrategy === "parityReversion")
+          duration = parseInt(
+            document.getElementById("reversionDuration").value
+          );
+        else if (currentStrategy === "consolidationFade")
+          duration = parseInt(
+            document.getElementById("consolidationDuration").value
+          );
+        else if (currentStrategy === "momentumParity")
+          duration = parseInt(
+            document.getElementById("momentumDuration").value
+          );
+        const pr = {
+          proposal: 1,
+          amount: stake,
+          basis: "stake",
+          contract_type: type,
+          currency: "USD",
+          duration: duration,
+          duration_unit: "t",
+          symbol: "R_10",
+        };
+        ws.send(JSON.stringify(pr));
+      }
+
+      function handleProposal(d) {
+        if (d.error) {
+          showToast("Proposal failed", "error");
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          return;
+        }
+        if (d.proposal)
+          ws.send(
+            JSON.stringify({ buy: d.proposal.id, price: d.proposal.ask_price })
+          );
+      }
+
+      function handleBuy(d) {
+        if (d.error) {
+          showToast("Buy failed", "error");
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          return;
+        }
+        ws.send(
+          JSON.stringify({
+            proposal_open_contract: 1,
+            contract_id: d.buy.contract_id,
+            subscribe: 1,
+          })
+        );
+      }
+
+      function handleContract(d) {
+        const c = d.proposal_open_contract;
+        if (c.status === "sold" || c.is_sold) {
+          const p = parseFloat(c.profit),
+            w = p > 0;
+          totalPnl += p;
+          totalTrades++;
+          if (w) {
+            wins++;
+            showToast(`WON! +${p.toFixed(2)}`, "success");
+          } else {
+            losses++;
+            showToast(`LOST: ${p.toFixed(2)}`, "error");
+          }
+          updatePnL();
+          updateWinRate();
+          addTradeToHistory({
+            time: new Date().toLocaleTimeString(),
+            strategy: currentStrategy,
+            signal: c.contract_type.replace("DIGIT", ""),
+            stake: parseFloat(c.buy_price),
+            result: w ? "Win" : "Loss",
+            pnl: p,
+          });
+          handleMartingale(w);
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          const mt = parseInt(document.getElementById("maxTrades").value);
+          if (mt > 0 && totalTrades >= mt) {
+            stopAutoTrading();
+            showToast("Trade limit reached!", "warning");
+            return;
+          }
+          if (
+            Math.abs(totalPnl) >=
+            parseFloat(document.getElementById("maxLoss").value)
+          ) {
+            stopAutoTrading();
+            showToast("Max loss reached!", "error");
+            return;
+          }
+          if (
+            totalPnl >= parseFloat(document.getElementById("maxProfit").value)
+          ) {
+            stopAutoTrading();
+            showToast("Profit target reached! 🎉", "success");
+            return;
+          }
+        }
+      }
+
+      function handleMartingale(w) {
+        const e = document.getElementById("enableMartingale").checked,
+          i = parseFloat(document.getElementById("initialStake").value);
+        if (!e) {
+          currentStake = i;
+          martingaleStep = 0;
+        } else if (w) {
+          currentStake = i;
+          martingaleStep = 0;
+        } else {
+          const m = parseInt(
+            document.getElementById("maxMartingaleSteps").value
+          );
+          if (martingaleStep < m) {
+            currentStake = currentStake ? currentStake * 2 : i * 2;
+            martingaleStep++;
+          } else {
+            currentStake = i;
+            martingaleStep = 0;
+          }
+        }
+        updateCurrentStakeDisplay();
+      }
+
+      function updateBalance() {
+        document.getElementById("balance").textContent = `${balance.toFixed(
+          2
+        )}`;
+      }
+      function updatePnL() {
+        const e = document.getElementById("totalPnl");
+        e.textContent = `${totalPnl.toFixed(2)}`;
+        e.className = `text-2xl font-bold ${totalPnl >= 0 ? "profit" : "loss"}`;
+      }
+      function updateWinRate() {
+        const r = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+        document.getElementById("winRate").textContent = `${r}%`;
+        document.getElementById("totalTrades").textContent = totalTrades;
+        const m = parseInt(document.getElementById("maxTrades").value);
+        document.getElementById("tradesRemaining").textContent =
+          m > 0 ? Math.max(0, m - totalTrades) : "∞";
+      }
+      function updateCurrentStakeDisplay() {
+        document.getElementById(
+          "currentStakeDisplay"
+        ).textContent = `${currentStake.toFixed(2)}`;
+      }
+
+      function addTradeToHistory(t) {
+        tradeHistory.unshift(t);
+        if (tradeHistory.length > 100) tradeHistory.pop();
+        const signalBadge = t.signal === "EVEN" ? "even-badge" : "odd-badge";
+        document.getElementById("tradeHistory").innerHTML = tradeHistory
+          .map(
+            (t) =>
+              `<tr class="hover:bg-gray-700"><td class="p-3">${
+                t.time
+              }</td><td class="p-3 text-xs">${
+                t.strategy
+              }</td><td class="p-3"><span class="${
+                t.signal === "EVEN" ? "even-badge" : "odd-badge"
+              }">${t.signal}</span></td><td class="p-3">${t.stake.toFixed(
+                2
+              )}</td><td class="p-3"><span class="px-3 py-1 rounded-full text-xs ${
+                t.result === "Win" ? "bg-green-600" : "bg-red-600"
+              }">${t.result}</span></td><td class="p-3 font-bold ${
+                t.pnl >= 0 ? "profit" : "loss"
+              }">${t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)}</td></tr>`
+          )
+          .join("");
+      }
+
+      function startAutoTrading() {
+        if (!isConnected) {
+          showToast("Not connected!", "error");
+          return;
+        }
+        if (digits.length < 5) {
+          showToast("Waiting for tick data...", "warning");
+          return;
+        }
+        isTrading = true;
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        currentStake = parseFloat(
+          document.getElementById("initialStake").value
+        );
+        martingaleStep = 0;
+        showToast("AUTO TRADING STARTED! 🎲", "success");
+      }
+
+      function stopAutoTrading() {
+        isTrading = false;
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+        showToast("Trading stopped", "info");
+      }
+
+      function resetSession() {
+        if (!confirm("Reset all session data?")) return;
+        totalPnl = 0;
+        totalTrades = 0;
+        wins = 0;
+        losses = 0;
+        martingaleStep = 0;
+        currentStake = parseFloat(
+          document.getElementById("initialStake").value
+        );
+        tradeHistory = [];
+        prices = [];
+        digits = [];
+        tickData = [];
+        biasState = { evenCount: 0, oddCount: 0, evenRatio: 0, oddRatio: 0 };
+        streakState = { currentStreak: 0, parityType: null, delayTicks: 0 };
+        reversionState = { streak: 0, type: null, cooldownLeft: 0 };
+        consolidationState = {
+          isFluctuating: false,
+          matchCount: 0,
+          lastParity: null,
+        };
+        momentumState = { lastMove: 0, lastParity: null, cooldownLeft: 0 };
+        document.getElementById("tradeHistory").innerHTML =
+          '<tr><td colspan="6" class="p-8 text-center text-gray-500">No trades yet</td></tr>';
+        document.getElementById("parityHistory").innerHTML =
+          '<span class="text-gray-500">Waiting for data...</span>';
+        updatePnL();
+        updateWinRate();
+        updateCurrentStakeDisplay();
+        showToast("Session reset!", "success");
+      }
+
+      function exportHistory() {
+        if (tradeHistory.length === 0) {
+          showToast("No history to export", "warning");
+          return;
+        }
+        const csv = [
+          ["Time", "Strategy", "Signal", "Stake", "Result", "PnL"],
+          ...tradeHistory.map((t) => [
+            t.time,
+            t.strategy,
+            t.signal,
+            t.stake.toFixed(2),
+            t.result,
+            t.pnl.toFixed(2),
+          ]),
+        ]
+          .map((r) => r.join(","))
+          .join("\n");
+        const b = new Blob([csv], { type: "text/csv" }),
+          u = URL.createObjectURL(b),
+          a = document.createElement("a");
+        a.href = u;
+        a.download = `parity_trades_${
+          new Date().toISOString().split("T")[0]
+        }.csv`;
+        a.click();
+        URL.revokeObjectURL(u);
+        showToast("History exported!", "success");
+      }
+
+      function selectStrategy(s) {
+        currentStrategy = s;
+        [
+          "parityBias",
+          "shortStreak",
+          "parityReversion",
+          "consolidationFade",
+          "momentumParity",
+        ].forEach((x) => {
+          document.getElementById(`stratBtn-${x}`).className =
+            x === s
+              ? "strategy-btn active p-4 rounded-xl text-left"
+              : "strategy-btn bg-gray-700 p-4 rounded-xl text-left";
+        });
+        document
+          .getElementById("parityBiasStrategy")
+          .classList.toggle("hidden", s !== "parityBias");
+        document
+          .getElementById("shortStreakStrategy")
+          .classList.toggle("hidden", s !== "shortStreak");
+        document
+          .getElementById("parityReversionStrategy")
+          .classList.toggle("hidden", s !== "parityReversion");
+        document
+          .getElementById("consolidationFadeStrategy")
+          .classList.toggle("hidden", s !== "consolidationFade");
+        document
+          .getElementById("momentumParityStrategy")
+          .classList.toggle("hidden", s !== "momentumParity");
+        showToast(`Strategy changed: ${s}`, "info");
+      }
+
+      function executeSingleTrade() {
+        if (!isConnected) {
+          showToast("Not connected", "error");
+          return;
+        }
+        if (digits.length < 5) {
+          showToast("Waiting for data", "warning");
+          return;
+        }
+        if (isProcessing) {
+          showToast("Trade in progress", "warning");
+          return;
+        }
+        analyzeMarket();
+      }
+
+      selectStrategy("parityBias");
+      updateWinRate();
+      updateCurrentStakeDisplay();
+      showToast("Welcome to Parity Edition V5! 🎲", "success");
+    </script>
+  </body>
+</html>

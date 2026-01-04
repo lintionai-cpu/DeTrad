@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Boom-Crash Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Core Styles */
+      .status-connected { color: #10b981; }
+      .status-disconnected { color: #ef4444; }
+      .profit { color: #10b981; }
+      .loss { color: #ef4444; }
+      
+      /* Toast System */
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+        width: 90%;
+      }
+      .toast {
+        background: linear-gradient(135deg, #1f2937, #111827);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease;
+        display: flex;
+        gap: 12px;
+        border-left: 4px solid #3b82f6;
+      }
+      .toast.success { border-left-color: #10b981; }
+      .toast.error { border-left-color: #ef4444; }
+      .toast.warning { border-left-color: #f59e0b; }
+      .toast.info { border-left-color: #3b82f6; }
+      
+      @keyframes slideIn {
+        from { transform: translateX(450px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      .pulse { animation: pulse 2s ease-in-out infinite; }
+      .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+      
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      
+      .strategy-btn {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+      .strategy-btn.active {
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        border-color: #60a5fa;
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+      }
+      
+      .boom-badge {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      
+      /* Mobile Optimizations */
+      @media (max-width: 640px) {
+        .mobile-stack { flex-direction: column; }
+        .mobile-full { width: 100%; }
+        .mobile-text-sm { font-size: 0.875rem; }
+        .mobile-text-xs { font-size: 0.75rem; }
+        .mobile-p-3 { padding: 0.75rem; }
+        .mobile-grid-cols-1 { grid-template-columns: 1fr; }
+        .mobile-grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+        .mobile-hide { display: none; }
+        .toast-container {
+          top: 10px;
+          right: 10px;
+          left: 10px;
+          max-width: none;
+        }
+      }
+      
+      /* Performance Optimizations */
+      .no-lag { 
+        will-change: transform, opacity;
+        backface-visibility: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      
+      /* Connection Health */
+      .connection-health {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+      }
+      .health-excellent { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+      .health-good { background-color: #3b82f6; }
+      .health-poor { background-color: #f59e0b; animation: pulse 1s infinite; }
+      .health-dead { background-color: #ef4444; }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen p-2 sm:p-4 no-lag">
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 sm:p-6 mb-4 shadow-2xl border border-yellow-900">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-bold flex items-center gap-2 sm:gap-3" style="background: linear-gradient(135deg, #f59e0b, #d97706); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+              ⚡ Boom/Crash Edition<span class="boom-badge">BOOM 1000</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-gray-400 mt-1">Ultra-Low Latency • Real-Time Analysis • Zero Delay</p>
+          </div>
+          <div class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700 w-full sm:w-auto">
+            <span id="connectionDot" class="w-3 h-3 rounded-full bg-red-500"></span>
+            <span id="connectionStatus" class="status-disconnected font-semibold text-sm sm:text-base">Disconnected</span>
+            <span id="connectionHealth" class="connection-health health-dead mobile-hide"></span>
+            <span id="latencyDisplay" class="text-xs text-gray-400 mobile-hide">- ms</span>
+          </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div class="bg-gradient-to-br from-blue-600 to-blue-800 p-3 sm:p-4 rounded-xl">
+            <p class="text-xs text-blue-200">Balance</p>
+            <p id="balance" class="text-xl sm:text-2xl font-bold">$0.00</p>
+          </div>
+          <div class="bg-gradient-to-br from-purple-600 to-purple-800 p-3 sm:p-4 rounded-xl">
+            <p class="text-xs text-purple-200">PnL</p>
+            <p id="totalPnl" class="text-xl sm:text-2xl font-bold">$0.00</p>
+          </div>
+          <div class="bg-gradient-to-br from-green-600 to-green-800 p-3 sm:p-4 rounded-xl">
+            <p class="text-xs text-green-200">Win Rate</p>
+            <p id="winRate" class="text-xl sm:text-2xl font-bold">0%</p>
+          </div>
+          <div class="bg-gradient-to-br from-orange-600 to-orange-800 p-3 sm:p-4 rounded-xl">
+            <p class="text-xs text-orange-200">Trades</p>
+            <p id="totalTrades" class="text-xl sm:text-2xl font-bold">0</p>
+          </div>
+        </div>
+
+        <!-- Status Grid -->
+        <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3">
+          <div class="bg-gray-700 bg-opacity-50 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Stake</p>
+            <p id="currentStakeDisplay" class="text-base sm:text-lg font-bold text-blue-400">$0.00</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Signal</p>
+            <p id="currentSignal" class="text-base sm:text-lg font-bold text-yellow-400">WAITING</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Tick Buffer</p>
+            <p id="tickBuffer" class="text-base sm:text-lg font-bold text-green-400">0</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Remaining</p>
+            <p id="tradesRemaining" class="text-base sm:text-lg font-bold text-purple-400">∞</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Connection -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 sm:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg sm:text-xl font-bold mb-3">🔐 API Connection</h2>
+        <div class="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-3 mb-4 text-sm">
+          <p class="font-semibold mb-1">⚠️ HIGH VOLATILITY WARNING</p>
+          <p class="text-xs text-gray-300">BOOM 1000 strategies are optimized for rapid price movements. Start with DEMO accounts!</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2 mobile-stack">
+          <input type="password" id="apiToken" placeholder="Deriv API Token" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white mobile-full" />
+          <div class="flex gap-2 mobile-full">
+            <button onclick="connectAPI()" id="connectBtn" class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 rounded-lg font-semibold">Connect</button>
+            <button onclick="disconnectAPI()" class="flex-1 bg-gradient-to-r from-red-600 to-red-700 px-4 sm:px-6 py-3 rounded-lg font-semibold">Disconnect</button>
+          </div>
+        </div>
+        <div class="mt-3 grid mobile-grid-cols-2 gap-2 text-xs">
+          <div class="flex items-center">
+            <span class="connection-health health-excellent mr-2"></span>
+            <span>Connection: <span id="connectionQuality">Poor</span></span>
+          </div>
+          <div>
+            <span>Latency: <span id="latencyValue">-</span>ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Risk Management -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 sm:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg sm:text-xl font-bold mb-4">⚠️ Risk Management</h2>
+        <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div>
+            <label class="block text-sm mb-2">Initial Stake ($)</label>
+            <input type="number" id="initialStake" min="0.35" step="0.01" value="0.35" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 sm:px-4 py-2 sm:py-3" />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Loss ($)</label>
+            <input type="number" id="maxLoss" min="1" value="20" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 sm:px-4 py-2 sm:py-3" />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Profit ($)</label>
+            <input type="number" id="maxProfit" min="1" value="50" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 sm:px-4 py-2 sm:py-3" />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Trades (0=∞)</label>
+            <input type="number" id="maxTrades" min="0" value="100" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 sm:px-4 py-2 sm:py-3" />
+          </div>
+        </div>
+        <div class="mt-4 bg-gradient-to-r from-blue-900 to-blue-800 p-3 sm:p-4 rounded-lg">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" id="enableMartingale" class="w-5 h-5 cursor-pointer" />
+            <span class="font-semibold text-sm sm:text-base">Enable Martingale (Doubles on Loss)</span>
+          </label>
+          <div class="mt-3">
+            <label class="block text-sm mb-2">Max Martingale Steps</label>
+            <input type="number" id="maxMartingaleSteps" min="1" max="5" value="3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+          </div>
+        </div>
+      </div>
+
+      <!-- BOOM 1000 STRATEGIES -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 sm:p-6 mb-4 shadow-2xl border border-yellow-900">
+        <h2 class="text-lg sm:text-xl font-bold mb-4 flex items-center gap-2">
+          ⚡ BOOM 1000 Strategies
+          <span class="boom-badge">ZERO LATENCY</span>
+        </h2>
+
+        <!-- Strategy Selector -->
+        <div class="grid mobile-grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-6">
+          <button onclick="selectStrategy('preSpike')" id="stratBtn-preSpike" class="strategy-btn active p-3 sm:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm sm:text-base">🚀 Pre-Spike Catch</p>
+            <p class="text-xs mt-1">Compression → Spike</p>
+          </button>
+          <button onclick="selectStrategy('postSpike')" id="stratBtn-postSpike" class="strategy-btn bg-gray-700 p-3 sm:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm sm:text-base">📉 Post-Spike Retrace</p>
+            <p class="text-xs mt-1">Calm after spike</p>
+          </button>
+          <button onclick="selectStrategy('volatilitySurge')" id="stratBtn-volatilitySurge" class="strategy-btn bg-gray-700 p-3 sm:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm sm:text-base">💥 Volatility Surge</p>
+            <p class="text-xs mt-1">Breakout detection</p>
+          </button>
+          <button onclick="selectStrategy('momentumShift')" id="stratBtn-momentumShift" class="strategy-btn bg-gray-700 p-3 sm:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm sm:text-base">🔄 Momentum Shift</p>
+            <p class="text-xs mt-1">Trend reversal</p>
+          </button>
+          <button onclick="selectStrategy('rangeBreakout')" id="stratBtn-rangeBreakout" class="strategy-btn bg-gray-700 p-3 sm:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm sm:text-base">🎯 Range Breakout</p>
+            <p class="text-xs mt-1">Consolidation exit</p>
+          </button>
+        </div>
+
+        <!-- Pre-Spike Compression Strategy -->
+        <div id="preSpikeStrategy" class="bg-gray-700 bg-opacity-50 p-4 sm:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base sm:text-lg mb-3">🚀 Pre-Spike Compression (Spike Catch)</h3>
+          <p class="text-xs sm:text-sm text-gray-300 mb-4">Enter right before a likely upward spike after compression + micro pullback</p>
+          <div class="grid mobile-grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Range Width (≤ points)</label>
+              <input type="number" id="spikeRangeWidth" min="0.5" max="2" step="0.1" value="1.2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Last 20 ticks range</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Pullback Ticks</label>
+              <input type="number" id="pullbackTicks" min="2" max="5" value="3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Consecutive downward ticks</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Max Pullback Size</label>
+              <input type="number" id="maxPullbackSize" min="0.1" max="0.5" step="0.05" value="0.2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Max move per tick</p>
+            </div>
+          </div>
+          <div class="mt-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Spike Catch Status:</p>
+            <div class="grid mobile-grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <div>Current Range: <span id="currentRange" class="font-bold text-blue-400">-</span></div>
+              <div>Pullback Count: <span id="pullbackCount" class="font-bold text-yellow-400">0</span></div>
+              <div>Signal: <span id="spikeCatchSignal" class="font-bold text-green-400">WAIT</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Post-Spike Retrace Strategy -->
+        <div id="postSpikeStrategy" class="hidden bg-gray-700 bg-opacity-50 p-4 sm:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base sm:text-lg mb-3">📉 Post-Spike Retrace (Small Candle)</h3>
+          <p class="text-xs sm:text-sm text-gray-300 mb-4">Capture calm after a ≥6 point spike with small retracement</p>
+          <div class="grid mobile-grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Spike Size (≥ points)</label>
+              <input type="number" id="spikeSizeThreshold" min="4" max="10" step="0.5" value="6" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Minimum spike to trigger</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Retrace %</label>
+              <input type="number" id="retracePercent" min="5" max="30" step="1" value="15" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Minimum pullback %</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Calm Period (ticks)</label>
+              <input type="number" id="calmPeriod" min="3" max="10" value="5" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Ticks after retrace</p>
+            </div>
+          </div>
+          <div class="mt-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Retrace Status:</p>
+            <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div>Last Spike: <span id="lastSpikeSize" class="font-bold text-red-400">0</span></div>
+              <div>Retrace: <span id="currentRetrace" class="font-bold text-blue-400">0%</span></div>
+              <div>Calm Ticks: <span id="calmTicks" class="font-bold text-yellow-400">0</span></div>
+              <div>Signal: <span id="retraceSignal" class="font-bold text-green-400">-</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Volatility Surge Strategy -->
+        <div id="volatilitySurgeStrategy" class="hidden bg-gray-700 bg-opacity-50 p-4 sm:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base sm:text-lg mb-3">💥 Volatility Surge Strategy</h3>
+          <p class="text-xs sm:text-sm text-gray-300 mb-4">Detect sudden volatility increase after low volatility period</p>
+          <div class="grid mobile-grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Low Vol Period (ticks)</label>
+              <input type="number" id="lowVolPeriod" min="10" max="50" value="30" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Low volatility duration</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Surge Multiplier</label>
+              <input type="number" id="surgeMultiplier" min="2" max="5" step="0.5" value="3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">× Average move to trigger</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Follow Duration (ticks)</label>
+              <input type="number" id="surgeDuration" min="1" max="5" value="2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Trade duration</p>
+            </div>
+          </div>
+          <div class="mt-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Surge Status:</p>
+            <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div>Volatility: <span id="currentVolatility" class="font-bold text-blue-400">-</span></div>
+              <div>Avg Move: <span id="avgMove" class="font-bold text-yellow-400">-</span></div>
+              <div>Last Move: <span id="lastMoveSize" class="font-bold text-red-400">-</span></div>
+              <div>Signal: <span id="surgeSignal" class="font-bold text-green-400">-</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Momentum Shift Strategy -->
+        <div id="momentumShiftStrategy" class="hidden bg-gray-700 bg-opacity-50 p-4 sm:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base sm:text-lg mb-3">🔄 Momentum Shift Strategy</h3>
+          <p class="text-xs sm:text-sm text-gray-300 mb-4">Detect strong momentum shift with confirmation ticks</p>
+          <div class="grid mobile-grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Momentum Ticks</label>
+              <input type="number" id="momentumTicks" min="3" max="8" value="4" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Consecutive direction</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Reversal Strength</label>
+              <input type="number" id="reversalStrength" min="0.5" max="2" step="0.1" value="1.2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Minimum reversal size</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Confirmation Ticks</label>
+              <input type="number" id="confirmationTicks" min="1" max="3" value="2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Ticks to confirm shift</p>
+            </div>
+          </div>
+          <div class="mt-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Momentum Status:</p>
+            <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div>Trend: <span id="momentumTrend" class="font-bold text-blue-400">-</span></div>
+              <div>Strength: <span id="momentumStrength" class="font-bold text-yellow-400">0</span></div>
+              <div>Shift: <span id="momentumShift" class="font-bold text-red-400">NO</span></div>
+              <div>Signal: <span id="momentumSignal" class="font-bold text-green-400">-</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Range Breakout Strategy -->
+        <div id="rangeBreakoutStrategy" class="hidden bg-gray-700 bg-opacity-50 p-4 sm:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base sm:text-lg mb-3">🎯 Range Breakout Strategy</h3>
+          <p class="text-xs sm:text-sm text-gray-300 mb-4">Trade breakouts from consolidation range with volume confirmation</p>
+          <div class="grid mobile-grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Range Period (ticks)</label>
+              <input type="number" id="rangePeriod" min="15" max="50" value="25" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Consolidation duration</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Breakout %</label>
+              <input type="number" id="breakoutPercent" min="1" max="5" step="0.1" value="2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">% outside range</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Follow Duration (ticks)</label>
+              <input type="number" id="breakoutDuration" min="2" max="6" value="3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Trade duration</p>
+            </div>
+          </div>
+          <div class="mt-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Breakout Status:</p>
+            <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div>Range: <span id="breakoutRange" class="font-bold text-blue-400">-</span></div>
+              <div>Position: <span id="rangePosition" class="font-bold text-yellow-400">-</span></div>
+              <div>Breakout: <span id="breakoutStatus" class="font-bold text-red-400">NO</span></div>
+              <div>Signal: <span id="breakoutSignal" class="font-bold text-green-400">-</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 sm:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg sm:text-xl font-bold mb-4">🎮 Trading Controls</h2>
+        <div class="grid mobile-grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          <button onclick="startAutoTrading()" id="startBtn" class="bg-gradient-to-r from-green-600 to-green-700 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg">🚀 START</button>
+          <button onclick="stopAutoTrading()" id="stopBtn" disabled class="bg-gradient-to-r from-red-600 to-red-700 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg">⛔ STOP</button>
+          <button onclick="executeSingleTrade()" id="singleBtn" class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg">⚡ SINGLE</button>
+          <button onclick="resetSession()" class="bg-gradient-to-r from-yellow-600 to-yellow-700 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg">🔄 RESET</button>
+        </div>
+      </div>
+
+      <!-- Trade History -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 sm:p-6 shadow-2xl border border-gray-700">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+          <h2 class="text-lg sm:text-xl font-bold">📜 Trade History</h2>
+          <button onclick="exportHistory()" class="bg-purple-600 px-4 py-2 rounded-lg font-semibold text-sm sm:text-base w-full sm:w-auto">📥 Export CSV</button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-700">
+          <table class="w-full text-xs sm:text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="p-2 sm:p-3 text-left">Time</th>
+                <th class="p-2 sm:p-3 text-left mobile-hide">Strategy</th>
+                <th class="p-2 sm:p-3 text-left">Dir</th>
+                <th class="p-2 sm:p-3 text-left">Stake</th>
+                <th class="p-2 sm:p-3 text-left">Result</th>
+                <th class="p-2 sm:p-3 text-left">PnL</th>
+              </tr>
+            </thead>
+            <tbody id="tradeHistory" class="divide-y divide-gray-700">
+              <tr><td colspan="6" class="p-6 sm:p-8 text-center text-gray-500">No trades yet - Start trading!</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // =====================
+      // GLOBAL VARIABLES
+      // =====================
+      let ws = null;
+      let isConnected = false;
+      let isTrading = false;
+      let isProcessing = false;
+      let balance = 0;
+      let totalPnl = 0;
+      let currentStake = 0;
+      let martingaleStep = 0;
+      let tradeHistory = [];
+      let tickData = [];
+      let prices = [];
+      let totalTrades = 0;
+      let wins = 0;
+      let losses = 0;
+      let currentStrategy = "preSpike";
+      let lastPingTime = 0;
+      let latency = 0;
+      let connectionRetries = 0;
+      const maxRetries = 5;
+      
+      // Strategy States
+      let preSpikeState = {
+        compression: false,
+        pullbackCount: 0,
+        lastSpikeTime: 0,
+        rangeWidth: 0
+      };
+      
+      let postSpikeState = {
+        lastSpikeSize: 0,
+        spikeTime: 0,
+        retracePercent: 0,
+        calmTicks: 0
+      };
+      
+      let volatilitySurgeState = {
+        lowVolPeriod: 0,
+        avgMove: 0,
+        lastMove: 0,
+        surgeDetected: false
+      };
+      
+      let momentumShiftState = {
+        trendDirection: null,
+        momentumCount: 0,
+        reversalDetected: false,
+        confirmationTicks: 0
+      };
+      
+      let rangeBreakoutState = {
+        rangeHigh: null,
+        rangeLow: null,
+        inRangeTicks: 0,
+        breakoutDirection: null
+      };
+
+      // =====================
+      // CORE FUNCTIONS
+      // =====================
+      function showToast(message, type = "info") {
+        const container = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+        const icons = {
+          success: "✅",
+          error: "❌",
+          warning: "⚠️",
+          info: "ℹ️"
+        };
+        toast.innerHTML = `
+          <div class="text-2xl">${icons[type]}</div>
+          <div>
+            <p class="font-bold text-sm">${type.toUpperCase()}</p>
+            <p class="text-sm">${message}</p>
+          </div>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+
+      // =====================
+      // WEBSOCKET CONNECTION (ZERO LATENCY)
+      // =====================
+      function connectAPI() {
+        const token = document.getElementById("apiToken").value.trim();
+        if (!token) {
+          showToast("Enter API token", "error");
+          return;
+        }
+        
+        // Close existing connection
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+        
+        // Connect with low-latency parameters
+        ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+        
+        ws.onopen = () => {
+          lastPingTime = Date.now();
+          ws.send(JSON.stringify({ authorize: token }));
+          startConnectionMonitor();
+        };
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          handleWSMessage(data);
+          updateLatency();
+        };
+        
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          showToast("Connection error", "error");
+          updateConnectionStatus(false);
+          updateConnectionHealth("dead");
+        };
+        
+        ws.onclose = () => {
+          updateConnectionStatus(false);
+          updateConnectionHealth("dead");
+          if (isTrading) stopAutoTrading();
+          
+          // Auto-reconnect logic
+          if (connectionRetries < maxRetries) {
+            connectionRetries++;
+            setTimeout(() => {
+              showToast(`Reconnecting... (${connectionRetries}/${maxRetries})`, "warning");
+              connectAPI();
+            }, 1000 * connectionRetries);
+          }
+        };
+        
+        showToast("Connecting...", "info");
+      }
+
+      function disconnectAPI() {
+        connectionRetries = maxRetries; // Prevent auto-reconnect
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+        stopAutoTrading();
+        updateConnectionStatus(false);
+        updateConnectionHealth("dead");
+        showToast("Disconnected", "info");
+      }
+
+      function startConnectionMonitor() {
+        setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            lastPingTime = Date.now();
+            ws.send(JSON.stringify({ ping: 1 }));
+          }
+        }, 30000); // Ping every 30 seconds
+      }
+
+      function updateLatency() {
+        const now = Date.now();
+        latency = now - lastPingTime;
+        document.getElementById("latencyValue").textContent = latency;
+        document.getElementById("latencyDisplay").textContent = `${latency}ms`;
+        
+        // Update connection quality
+        if (latency < 50) {
+          updateConnectionHealth("excellent");
+          document.getElementById("connectionQuality").textContent = "Excellent";
+        } else if (latency < 100) {
+          updateConnectionHealth("good");
+          document.getElementById("connectionQuality").textContent = "Good";
+        } else if (latency < 200) {
+          updateConnectionHealth("poor");
+          document.getElementById("connectionQuality").textContent = "Fair";
+        } else {
+          updateConnectionHealth("dead");
+          document.getElementById("connectionQuality").textContent = "Poor";
+        }
+      }
+
+      function updateConnectionHealth(status) {
+        const healthEl = document.getElementById("connectionHealth");
+        healthEl.className = `connection-health health-${status}`;
+      }
+
+      function updateConnectionStatus(connected) {
+        isConnected = connected;
+        document.getElementById("connectionStatus").textContent = connected ? "Connected" : "Disconnected";
+        document.getElementById("connectionStatus").className = connected ? "status-connected font-semibold" : "status-disconnected font-semibold";
+        document.getElementById("connectionDot").className = `w-3 h-3 rounded-full ${connected ? "bg-green-500 glow" : "bg-red-500"}`;
+        if (connected) {
+          connectionRetries = 0;
+          updateConnectionHealth("good");
+        }
+      }
+
+      // =====================
+      // WEBSOCKET MESSAGE HANDLER
+      // =====================
+      function handleWSMessage(data) {
+        if (data.error) {
+          showToast(data.error.message, "error");
+          return;
+        }
+        
+        switch (data.msg_type) {
+          case "authorize":
+            if (data.authorize) {
+              isConnected = true;
+              balance = parseFloat(data.authorize.balance);
+              updateConnectionStatus(true);
+              updateBalance();
+              
+              // Subscribe to ticks with fastest possible feed
+              ws.send(JSON.stringify({ 
+                ticks: "R_100", 
+                subscribe: 1,
+                style: "ticks"
+              }));
+              
+              showToast("Connected to BOOM 1000! ⚡", "success");
+            }
+            break;
+            
+          case "tick":
+            handleTick(data.tick);
+            break;
+            
+          case "proposal":
+            handleProposal(data);
+            break;
+            
+          case "buy":
+            handleBuy(data);
+            break;
+            
+          case "proposal_open_contract":
+            handleContract(data);
+            break;
+            
+          case "balance":
+            balance = parseFloat(data.balance.balance);
+            updateBalance();
+            break;
+        }
+      }
+
+      // =====================
+      // TICK PROCESSING (ZERO DELAY)
+      // =====================
+      function handleTick(tick) {
+        const price = parseFloat(tick.quote);
+        const timestamp = tick.epoch;
+        
+        // Add to buffers with minimal processing
+        prices.push(price);
+        tickData.push({ price, timestamp });
+        
+        // Keep buffers optimized for speed
+        if (prices.length > 100) prices.shift();
+        if (tickData.length > 100) tickData.shift();
+        
+        // Update UI immediately
+        document.getElementById("tickBuffer").textContent = prices.length;
+        
+        // Analyze market if we have enough data
+        if (prices.length >= 5) {
+          // Use requestAnimationFrame for smooth UI updates
+          requestAnimationFrame(() => {
+            analyzeMarket();
+          });
+        }
+      }
+
+      // =====================
+      // BOOM 1000 STRATEGIES
+      // =====================
+      function analyzeMarket() {
+        // Ultra-fast strategy execution with minimal branching
+        switch (currentStrategy) {
+          case "preSpike":
+            analyzePreSpike();
+            break;
+          case "postSpike":
+            analyzePostSpike();
+            break;
+          case "volatilitySurge":
+            analyzeVolatilitySurge();
+            break;
+          case "momentumShift":
+            analyzeMomentumShift();
+            break;
+          case "rangeBreakout":
+            analyzeRangeBreakout();
+            break;
+        }
+      }
+
+      // 1. Pre-Spike Compression Strategy
+      function analyzePreSpike() {
+        if (prices.length < 20) return;
+        
+        // Check last 20 ticks range
+        const recentPrices = prices.slice(-20);
+        const high = Math.max(...recentPrices);
+        const low = Math.min(...recentPrices);
+        const range = high - low;
+        const rangeThreshold = parseFloat(document.getElementById("spikeRangeWidth").value);
+        
+        preSpikeState.rangeWidth = range;
+        document.getElementById("currentRange").textContent = range.toFixed(2);
+        
+        // Check for compression
+        const isCompressed = range <= rangeThreshold;
+        
+        // Check for small downward ticks (pullback)
+        const pullbackTicksReq = parseInt(document.getElementById("pullbackTicks").value);
+        const maxPullback = parseFloat(document.getElementById("maxPullbackSize").value);
+        
+        let pullbackCount = 0;
+        for (let i = prices.length - 1; i > prices.length - pullbackTicksReq - 1 && i > 0; i--) {
+          const change = prices[i] - prices[i - 1];
+          if (change < 0 && Math.abs(change) <= maxPullback) {
+            pullbackCount++;
+          } else {
+            break;
+          }
+        }
+        
+        preSpikeState.pullbackCount = pullbackCount;
+        document.getElementById("pullbackCount").textContent = pullbackCount;
+        
+        // Generate signal
+        if (isCompressed && pullbackCount >= pullbackTicksReq) {
+          const signal = "CALL"; // Expect upward spike
+          document.getElementById("spikeCatchSignal").textContent = signal;
+          document.getElementById("currentSignal").textContent = "SPIKE CATCH";
+          
+          if (isTrading && !isProcessing) {
+            executeTrade(signal);
+          }
+        } else {
+          document.getElementById("spikeCatchSignal").textContent = "WAIT";
+        }
+      }
+
+      // 2. Post-Spike Retrace Strategy
+      function analyzePostSpike() {
+        if (prices.length < 10) return;
+        
+        // Detect spike (≥6 points)
+        const spikeThreshold = parseFloat(document.getElementById("spikeSizeThreshold").value);
+        let spikeDetected = false;
+        let spikeSize = 0;
+        
+        // Check last 5 ticks for spike
+        for (let i = prices.length - 1; i > prices.length - 6 && i > 0; i--) {
+          const move = Math.abs(prices[i] - prices[i - 1]);
+          if (move >= spikeThreshold) {
+            spikeDetected = true;
+            spikeSize = move;
+            postSpikeState.lastSpikeSize = spikeSize;
+            postSpikeState.spikeTime = Date.now();
+            break;
+          }
+        }
+        
+        document.getElementById("lastSpikeSize").textContent = spikeSize.toFixed(2);
+        
+        if (spikeDetected) {
+          // Check for retracement
+          const retracePercentReq = parseInt(document.getElementById("retracePercent").value);
+          const calmPeriodReq = parseInt(document.getElementById("calmPeriod").value);
+          
+          // Calculate retrace from spike high/low
+          const spikeDirection = prices[prices.length - 1] > prices[prices.length - 2] ? "UP" : "DOWN";
+          let retracePercent = 0;
+          
+          if (spikeDirection === "UP") {
+            const spikeHigh = Math.max(...prices.slice(-5));
+            const currentPrice = prices[prices.length - 1];
+            retracePercent = ((spikeHigh - currentPrice) / spikeSize) * 100;
+          } else {
+            const spikeLow = Math.min(...prices.slice(-5));
+            const currentPrice = prices[prices.length - 1];
+            retracePercent = ((currentPrice - spikeLow) / spikeSize) * 100;
+          }
+          
+          postSpikeState.retracePercent = retracePercent;
+          document.getElementById("currentRetrace").textContent = retracePercent.toFixed(1) + "%";
+          
+          // Check calm period
+          if (retracePercent >= retracePercentReq) {
+            postSpikeState.calmTicks++;
+            document.getElementById("calmTicks").textContent = postSpikeState.calmTicks;
+            
+            if (postSpikeState.calmTicks >= calmPeriodReq) {
+              const signal = spikeDirection === "UP" ? "PUT" : "CALL"; // Fade the spike
+              document.getElementById("retraceSignal").textContent = signal;
+              document.getElementById("currentSignal").textContent = "RETRACE";
+              
+              if (isTrading && !isProcessing) {
+                executeTrade(signal);
+                postSpikeState.calmTicks = 0;
+              }
+            }
+          } else {
+            postSpikeState.calmTicks = 0;
+          }
+        } else {
+          document.getElementById("retraceSignal").textContent = "-";
+        }
+      }
+
+      // 3. Volatility Surge Strategy
+      function analyzeVolatilitySurge() {
+        if (prices.length < 30) return;
+        
+        const lowVolPeriod = parseInt(document.getElementById("lowVolPeriod").value);
+        const surgeMultiplier = parseFloat(document.getElementById("surgeMultiplier").value);
+        
+        // Calculate average move in low volatility period
+        let moves = [];
+        for (let i = prices.length - 1; i > prices.length - lowVolPeriod - 1 && i > 0; i--) {
+          moves.push(Math.abs(prices[i] - prices[i - 1]));
+        }
+        
+        const avgMove = moves.reduce((a, b) => a + b, 0) / moves.length;
+        const lastMove = Math.abs(prices[prices.length - 1] - prices[prices.length - 2]);
+        
+        volatilitySurgeState.avgMove = avgMove;
+        volatilitySurgeState.lastMove = lastMove;
+        
+        document.getElementById("currentVolatility").textContent = avgMove.toFixed(2);
+        document.getElementById("avgMove").textContent = avgMove.toFixed(2);
+        document.getElementById("lastMoveSize").textContent = lastMove.toFixed(2);
+        
+        // Check for surge
+        if (lastMove >= avgMove * surgeMultiplier) {
+          const direction = prices[prices.length - 1] > prices[prices.length - 2] ? "CALL" : "PUT";
+          document.getElementById("surgeSignal").textContent = direction;
+          document.getElementById("currentSignal").textContent = "VOL SURGE";
+          
+          if (isTrading && !isProcessing) {
+            executeTrade(direction);
+          }
+        } else {
+          document.getElementById("surgeSignal").textContent = "-";
+        }
+      }
+
+      // 4. Momentum Shift Strategy
+      function analyzeMomentumShift() {
+        if (prices.length < 10) return;
+        
+        const momentumTicksReq = parseInt(document.getElementById("momentumTicks").value);
+        const reversalStrengthReq = parseFloat(document.getElementById("reversalStrength").value);
+        const confirmationTicksReq = parseInt(document.getElementById("confirmationTicks").value);
+        
+        // Detect current trend
+        let trendDirection = null;
+        let momentumCount = 0;
+        
+        for (let i = prices.length - 1; i > 0; i--) {
+          const change = prices[i] - prices[i - 1];
+          const direction = change > 0 ? "UP" : "DOWN";
+          
+          if (trendDirection === null) {
+            trendDirection = direction;
+            momentumCount = 1;
+          } else if (trendDirection === direction) {
+            momentumCount++;
+          } else {
+            break;
+          }
+        }
+        
+        momentumShiftState.trendDirection = trendDirection;
+        momentumShiftState.momentumCount = momentumCount;
+        
+        document.getElementById("momentumTrend").textContent = trendDirection || "-";
+        document.getElementById("momentumStrength").textContent = momentumCount;
+        
+        // Check for strong reversal
+        if (momentumCount >= momentumTicksReq) {
+          const lastMove = Math.abs(prices[prices.length - 1] - prices[prices.length - 2]);
+          const prevAvg = Math.abs(prices[prices.length - 2] - prices[prices.length - 3]);
+          
+          if (lastMove >= prevAvg * reversalStrengthReq) {
+            const reversalDirection = trendDirection === "UP" ? "DOWN" : "UP";
+            momentumShiftState.reversalDetected = true;
+            momentumShiftState.confirmationTicks++;
+            
+            document.getElementById("momentumShift").textContent = "YES";
+            
+            if (momentumShiftState.confirmationTicks >= confirmationTicksReq) {
+              const signal = reversalDirection === "UP" ? "CALL" : "PUT";
+              document.getElementById("momentumSignal").textContent = signal;
+              document.getElementById("currentSignal").textContent = "MOMENTUM SHIFT";
+              
+              if (isTrading && !isProcessing) {
+                executeTrade(signal);
+                momentumShiftState.confirmationTicks = 0;
+                momentumShiftState.reversalDetected = false;
+              }
+            }
+          }
+        } else {
+          momentumShiftState.confirmationTicks = 0;
+          document.getElementById("momentumShift").textContent = "NO";
+          document.getElementById("momentumSignal").textContent = "-";
+        }
+      }
+
+      // 5. Range Breakout Strategy
+      function analyzeRangeBreakout() {
+        const rangePeriod = parseInt(document.getElementById("rangePeriod").value);
+        if (prices.length < rangePeriod) return;
+        
+        const breakoutPercent = parseFloat(document.getElementById("breakoutPercent").value);
+        
+        // Calculate range
+        const recentPrices = prices.slice(-rangePeriod);
+        const rangeHigh = Math.max(...recentPrices);
+        const rangeLow = Math.min(...recentPrices);
+        const rangeMid = (rangeHigh + rangeLow) / 2;
+        const rangeWidth = rangeHigh - rangeLow;
+        
+        rangeBreakoutState.rangeHigh = rangeHigh;
+        rangeBreakoutState.rangeLow = rangeLow;
+        
+        document.getElementById("breakoutRange").textContent = rangeWidth.toFixed(2);
+        
+        // Check if price is in range
+        const currentPrice = prices[prices.length - 1];
+        const inRange = currentPrice >= rangeLow && currentPrice <= rangeHigh;
+        
+        if (inRange) {
+          rangeBreakoutState.inRangeTicks++;
+          const position = ((currentPrice - rangeLow) / rangeWidth) * 100;
+          document.getElementById("rangePosition").textContent = position.toFixed(0) + "%";
+        } else {
+          rangeBreakoutState.inRangeTicks = 0;
+          
+          // Check for breakout
+          const breakoutThreshold = rangeWidth * (breakoutPercent / 100);
+          let breakoutDirection = null;
+          
+          if (currentPrice > rangeHigh + breakoutThreshold) {
+            breakoutDirection = "UP";
+          } else if (currentPrice < rangeLow - breakoutThreshold) {
+            breakoutDirection = "DOWN";
+          }
+          
+          if (breakoutDirection) {
+            rangeBreakoutState.breakoutDirection = breakoutDirection;
+            document.getElementById("breakoutStatus").textContent = breakoutDirection;
+            
+            const signal = breakoutDirection === "UP" ? "CALL" : "PUT";
+            document.getElementById("breakoutSignal").textContent = signal;
+            document.getElementById("currentSignal").textContent = "BREAKOUT";
+            
+            if (isTrading && !isProcessing) {
+              executeTrade(signal);
+            }
+          }
+        }
+        
+        document.getElementById("breakoutSignal").textContent = rangeBreakoutState.breakoutDirection || "-";
+      }
+
+      // =====================
+      // TRADE EXECUTION (ZERO DELAY)
+      // =====================
+      async function executeTrade(direction) {
+        if (isProcessing) return;
+        
+        isProcessing = true;
+        document.getElementById("singleBtn").disabled = true;
+        
+        // Get stake (martingale handled later)
+        const stake = currentStake || parseFloat(document.getElementById("initialStake").value);
+        
+        // Determine duration based on strategy
+        let duration = 1;
+        switch (currentStrategy) {
+          case "preSpike":
+          case "postSpike":
+            duration = 2;
+            break;
+          case "volatilitySurge":
+            duration = parseInt(document.getElementById("surgeDuration").value);
+            break;
+          case "momentumShift":
+            duration = 2;
+            break;
+          case "rangeBreakout":
+            duration = parseInt(document.getElementById("breakoutDuration").value);
+            break;
+        }
+        
+        // Send proposal immediately
+        const proposal = {
+          proposal: 1,
+          amount: stake,
+          basis: "stake",
+          contract_type: direction,
+          currency: "USD",
+          duration: duration,
+          duration_unit: "t",
+          symbol: "R_100",
+        };
+        
+        ws.send(JSON.stringify(proposal));
+      }
+
+      function handleProposal(data) {
+        if (data.error) {
+          showToast("Proposal failed: " + (data.error.message || "Unknown error"), "error");
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          return;
+        }
+        
+        if (data.proposal) {
+          // Execute buy immediately
+          ws.send(JSON.stringify({
+            buy: data.proposal.id,
+            price: data.proposal.ask_price
+          }));
+        }
+      }
+
+      function handleBuy(data) {
+        if (data.error) {
+          showToast("Buy failed: " + (data.error.message || "Unknown error"), "error");
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          return;
+        }
+        
+        // Subscribe to contract updates
+        ws.send(JSON.stringify({
+          proposal_open_contract: 1,
+          contract_id: data.buy.contract_id,
+          subscribe: 1
+        }));
+      }
+
+      function handleContract(data) {
+        const contract = data.proposal_open_contract;
+        
+        if (contract.status === "sold" || contract.is_sold) {
+          const profit = parseFloat(contract.profit);
+          const isWin = profit > 0;
+          
+          // Update stats
+          totalPnl += profit;
+          totalTrades++;
+          
+          if (isWin) {
+            wins++;
+            showToast(`WON! +$${profit.toFixed(2)}`, "success");
+          } else {
+            losses++;
+            showToast(`LOST: $${profit.toFixed(2)}`, "error");
+          }
+          
+          updatePnL();
+          updateWinRate();
+          
+          // Add to history
+          addTradeToHistory({
+            time: new Date().toLocaleTimeString(),
+            strategy: currentStrategy,
+            direction: contract.contract_type,
+            stake: parseFloat(contract.buy_price),
+            result: isWin ? "Win" : "Loss",
+            pnl: profit
+          });
+          
+          // Handle martingale
+          handleMartingale(isWin);
+          
+          // Reset processing flag
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          
+          // Check limits
+          const maxTrades = parseInt(document.getElementById("maxTrades").value);
+          if (maxTrades > 0 && totalTrades >= maxTrades) {
+            stopAutoTrading();
+            showToast("Trade limit reached!", "warning");
+            return;
+          }
+          
+          const maxLoss = parseFloat(document.getElementById("maxLoss").value);
+          if (Math.abs(totalPnl) >= maxLoss && totalPnl < 0) {
+            stopAutoTrading();
+            showToast("Max loss reached!", "error");
+            return;
+          }
+          
+          const maxProfit = parseFloat(document.getElementById("maxProfit").value);
+          if (totalPnl >= maxProfit) {
+            stopAutoTrading();
+            showToast("Profit target achieved! 🎉", "success");
+            return;
+          }
+        }
+      }
+
+      // =====================
+      // UTILITY FUNCTIONS
+      // =====================
+      function handleMartingale(isWin) {
+        const enableMartingale = document.getElementById("enableMartingale").checked;
+        const initialStake = parseFloat(document.getElementById("initialStake").value);
+        const maxSteps = parseInt(document.getElementById("maxMartingaleSteps").value);
+        
+        if (!enableMartingale) {
+          currentStake = initialStake;
+          martingaleStep = 0;
+        } else if (isWin) {
+          currentStake = initialStake;
+          martingaleStep = 0;
+        } else {
+          if (martingaleStep < maxSteps) {
+            currentStake = currentStake ? currentStake * 2 : initialStake * 2;
+            martingaleStep++;
+          } else {
+            currentStake = initialStake;
+            martingaleStep = 0;
+          }
+        }
+        
+        updateCurrentStakeDisplay();
+      }
+
+      function updateBalance() {
+        document.getElementById("balance").textContent = `$${balance.toFixed(2)}`;
+      }
+
+      function updatePnL() {
+        const element = document.getElementById("totalPnl");
+        element.textContent = `$${totalPnl.toFixed(2)}`;
+        element.className = `text-xl sm:text-2xl font-bold ${totalPnl >= 0 ? "profit" : "loss"}`;
+      }
+
+      function updateWinRate() {
+        const rate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+        document.getElementById("winRate").textContent = `${rate}%`;
+        document.getElementById("totalTrades").textContent = totalTrades;
+        
+        const maxTrades = parseInt(document.getElementById("maxTrades").value);
+        document.getElementById("tradesRemaining").textContent = maxTrades > 0 ? Math.max(0, maxTrades - totalTrades) : "∞";
+      }
+
+      function updateCurrentStakeDisplay() {
+        document.getElementById("currentStakeDisplay").textContent = `$${currentStake.toFixed(2)}`;
+      }
+
+      function addTradeToHistory(trade) {
+        tradeHistory.unshift(trade);
+        if (tradeHistory.length > 50) tradeHistory.pop();
+        
+        const historyHTML = tradeHistory.map(t => `
+          <tr class="hover:bg-gray-700">
+            <td class="p-2 sm:p-3">${t.time}</td>
+            <td class="p-2 sm:p-3 text-xs mobile-hide">${t.strategy}</td>
+            <td class="p-2 sm:p-3 font-bold">${t.direction}</td>
+            <td class="p-2 sm:p-3">$${t.stake.toFixed(2)}</td>
+            <td class="p-2 sm:p-3">
+              <span class="px-2 py-1 rounded-full text-xs ${t.result === "Win" ? "bg-green-600" : "bg-red-600"}">
+                ${t.result}
+              </span>
+            </td>
+            <td class="p-2 sm:p-3 font-bold ${t.pnl >= 0 ? "profit" : "loss"}">
+              ${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}
+            </td>
+          </tr>
+        `).join("");
+        
+        document.getElementById("tradeHistory").innerHTML = historyHTML || 
+          '<tr><td colspan="6" class="p-6 sm:p-8 text-center text-gray-500">No trades yet</td></tr>';
+      }
+
+      // =====================
+      // CONTROL FUNCTIONS
+      // =====================
+      function startAutoTrading() {
+        if (!isConnected) {
+          showToast("Not connected to API!", "error");
+          return;
+        }
+        
+        if (prices.length < 5) {
+          showToast("Waiting for market data...", "warning");
+          return;
+        }
+        
+        isTrading = true;
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        
+        currentStake = parseFloat(document.getElementById("initialStake").value);
+        martingaleStep = 0;
+        
+        showToast("AUTO TRADING STARTED! ⚡", "success");
+      }
+
+      function stopAutoTrading() {
+        isTrading = false;
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+        showToast("Trading stopped", "info");
+      }
+
+      function resetSession() {
+        if (!confirm("Reset trading session? All statistics will be cleared.")) return;
+        
+        totalPnl = 0;
+        totalTrades = 0;
+        wins = 0;
+        losses = 0;
+        martingaleStep = 0;
+        currentStake = parseFloat(document.getElementById("initialStake").value);
+        tradeHistory = [];
+        prices = [];
+        tickData = [];
+        
+        document.getElementById("tradeHistory").innerHTML = 
+          '<tr><td colspan="6" class="p-6 sm:p-8 text-center text-gray-500">No trades yet</td></tr>';
+        
+        updatePnL();
+        updateWinRate();
+        updateCurrentStakeDisplay();
+        
+        showToast("Session reset!", "success");
+      }
+
+      function exportHistory() {
+        if (tradeHistory.length === 0) {
+          showToast("No trade history to export", "warning");
+          return;
+        }
+        
+        const csv = [
+          ["Time", "Strategy", "Direction", "Stake", "Result", "PnL"],
+          ...tradeHistory.map(t => [
+            t.time,
+            t.strategy,
+            t.direction,
+            t.stake.toFixed(2),
+            t.result,
+            t.pnl.toFixed(2)
+          ])
+        ].map(row => row.join(",")).join("\n");
+        
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `boom1000_trades_${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showToast("History exported!", "success");
+      }
+
+      function selectStrategy(strategy) {
+        currentStrategy = strategy;
+        
+        // Update button states
+        const strategies = ["preSpike", "postSpike", "volatilitySurge", "momentumShift", "rangeBreakout"];
+        strategies.forEach(s => {
+          const btn = document.getElementById(`stratBtn-${s}`);
+          btn.className = s === strategy 
+            ? "strategy-btn active p-3 sm:p-4 rounded-xl text-left"
+            : "strategy-btn bg-gray-700 p-3 sm:p-4 rounded-xl text-left";
+        });
+        
+        // Show/hide strategy panels
+        document.getElementById("preSpikeStrategy").classList.toggle("hidden", strategy !== "preSpike");
+        document.getElementById("postSpikeStrategy").classList.toggle("hidden", strategy !== "postSpike");
+        document.getElementById("volatilitySurgeStrategy").classList.toggle("hidden", strategy !== "volatilitySurge");
+        document.getElementById("momentumShiftStrategy").classList.toggle("hidden", strategy !== "momentumShift");
+        document.getElementById("rangeBreakoutStrategy").classList.toggle("hidden", strategy !== "rangeBreakout");
+        
+        showToast(`Strategy: ${strategy} activated`, "info");
+      }
+
+      function executeSingleTrade() {
+        if (!isConnected) {
+          showToast("Not connected to API", "error");
+          return;
+        }
+        
+        if (prices.length < 5) {
+          showToast("Not enough market data", "warning");
+          return;
+        }
+        
+        if (isProcessing) {
+          showToast("Trade in progress", "warning");
+          return;
+        }
+        
+        // Force analysis and immediate trade
+        analyzeMarket();
+      }
+
+      // =====================
+      // INITIALIZATION
+      // =====================
+      selectStrategy("preSpike");
+      updateWinRate();
+      updateCurrentStakeDisplay();
+      showToast("BOOM 1000 Trader Ready! ⚡", "success");
+      
+      // Performance optimization: Use requestAnimationFrame for smooth updates
+      function updateUI() {
+        requestAnimationFrame(updateUI);
+      }
+      updateUI();
+    </script>
+  </body>
+</html>

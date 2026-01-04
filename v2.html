@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Accumulator Pro Trader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .status-connected {
+        color: #10b981;
+      }
+      .status-disconnected {
+        color: #ef4444;
+      }
+      .profit {
+        color: #10b981;
+      }
+      .loss {
+        color: #ef4444;
+      }
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+      }
+      .toast {
+        background: linear-gradient(135deg, #1f2937, #111827);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease;
+        display: flex;
+        gap: 12px;
+      }
+      .toast.success {
+        border-left: 4px solid #10b981;
+      }
+      .toast.error {
+        border-left: 4px solid #ef4444;
+      }
+      .toast.warning {
+        border-left: 4px solid #f59e0b;
+      }
+      .toast.info {
+        border-left: 4px solid #3b82f6;
+      }
+      @keyframes slideIn {
+        from {
+          transform: translateX(450px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .pulse {
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .glow {
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .mode-btn {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+      .mode-btn.active {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-color: #34d399;
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+      }
+      .accumulator-badge {
+        background: linear-gradient(135deg, #10b981, #059669);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        animation: pulse 2s ease-in-out infinite;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen p-4"
+  >
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-green-900"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h1
+              class="text-3xl font-bold flex items-center gap-3"
+              style="
+                background: linear-gradient(135deg, #10b981, #059669);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+              "
+            >
+              📈 Accumulator Pro <span class="accumulator-badge">TRADER</span>
+            </h1>
+            <p class="text-sm text-gray-400 mt-1">
+              Professional Accumulator Trading Platform
+            </p>
+          </div>
+          <div
+            class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700"
+          >
+            <span
+              id="connectionDot"
+              class="w-3 h-3 rounded-full bg-red-500"
+            ></span>
+            <span
+              id="connectionStatus"
+              class="status-disconnected font-semibold"
+              >Disconnected</span
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4">
+          <div
+            class="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-blue-200">Balance</p>
+            <p id="balance" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-purple-200">PnL</p>
+            <p id="totalPnl" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-green-600 to-green-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-green-200">Win Rate</p>
+            <p id="winRate" class="text-2xl font-bold">0%</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-orange-600 to-orange-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-orange-200">Trades</p>
+            <p id="totalTrades" class="text-2xl font-bold">0</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3 mt-3">
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Current Stake</p>
+            <p id="currentStakeDisplay" class="text-lg font-bold text-blue-400">
+              $0.00
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Active Position</p>
+            <p id="activePosition" class="text-lg font-bold text-yellow-400">
+              NONE
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Current Price</p>
+            <p id="currentPrice" class="text-lg font-bold text-green-400">-</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Growth</p>
+            <p id="currentGrowth" class="text-lg font-bold text-purple-400">
+              0.00%
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Connection -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-3">🔌 API Connection</h2>
+        <div
+          class="bg-green-900 bg-opacity-30 border border-green-600 rounded-lg p-3 mb-4 text-sm"
+        >
+          <p class="font-semibold mb-1">📊 ACCUMULATOR TRADING</p>
+          <p class="text-xs text-gray-300">
+            This platform trades Accumulator contracts. Growth accumulates as long as price stays within range. Test on DEMO first!
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <input
+            type="password"
+            id="apiToken"
+            placeholder="Deriv API Token"
+            class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+          />
+          <button
+            onclick="connectAPI()"
+            id="connectBtn"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            Connect
+          </button>
+          <button
+            onclick="disconnectAPI()"
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      <!-- Trading Mode Selection -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">🎯 Trading Mode</h2>
+        <div class="grid grid-cols-2 gap-4">
+          <button
+            onclick="selectMode('manual')"
+            id="modeBtn-manual"
+            class="mode-btn active p-6 rounded-xl text-left"
+          >
+            <p class="font-bold text-2xl">🎮 Manual Trading</p>
+            <p class="text-sm mt-2 text-gray-300">Full control over each trade - set parameters and execute manually</p>
+            <p class="text-xs mt-1 text-green-400">Recommended for precise trading</p>
+          </button>
+          <button
+            onclick="selectMode('auto')"
+            id="modeBtn-auto"
+            class="mode-btn bg-gray-700 p-6 rounded-xl text-left"
+          >
+            <p class="font-bold text-2xl">⚡ Auto Trading</p>
+            <p class="text-sm mt-2 text-gray-300">Automated execution with predefined rules and risk management</p>
+            <p class="text-xs mt-1 text-orange-400">Advanced traders only</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- MANUAL TRADING SETUP -->
+      <div
+        id="manualSetup"
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-green-900"
+      >
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+          🎮 Manual Trading Setup
+        </h2>
+
+        <!-- Market Selection -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold mb-3">📊 Select Market</label>
+          <div class="grid grid-cols-3 gap-3">
+            <button onclick="selectMarket('R_10')" id="market-R_10" class="bg-gray-700 hover:bg-green-700 p-4 rounded-lg font-semibold border-2 border-green-600">
+              Volatility 10 Index
+            </button>
+            <button onclick="selectMarket('R_25')" id="market-R_25" class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent">
+              Volatility 25 Index
+            </button>
+            <button onclick="selectMarket('R_50')" id="market-R_50" class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent">
+              Volatility 50 Index
+            </button>
+            <button onclick="selectMarket('R_75')" id="market-R_75" class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent">
+              Volatility 75 Index
+            </button>
+            <button onclick="selectMarket('R_100')" id="market-R_100" class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent">
+              Volatility 100 Index
+            </button>
+            <button onclick="selectMarket('1HZ10V')" id="market-1HZ10V" class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent">
+              Volatility 10 (1s)
+            </button>
+          </div>
+        </div>
+
+        <!-- Contract Parameters -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div>
+            <label class="block text-sm font-semibold mb-2">💰 Stake Amount ($)</label>
+            <input
+              type="number"
+              id="manualStake"
+              min="1"
+              step="0.5"
+              value="5.00"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+            <p class="text-xs text-gray-400 mt-1">Minimum: $1.00</p>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">📈 Growth Rate (%)</label>
+            <select
+              id="manualGrowthRate"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            >
+              <option value="0.01">1% per tick</option>
+              <option value="0.02" selected>2% per tick</option>
+              <option value="0.03">3% per tick</option>
+              <option value="0.04">4% per tick</option>
+              <option value="0.05">5% per tick</option>
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Higher = riskier</p>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">⏱️ Duration (Ticks)</label>
+            <input
+              type="number"
+              id="manualDuration"
+              min="5"
+              max="1000"
+              step="5"
+              value="50"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+            <p class="text-xs text-gray-400 mt-1">5-1000 ticks</p>
+          </div>
+        </div>
+
+        <!-- Take Profit Settings -->
+        <div class="bg-gray-700 bg-opacity-50 p-4 rounded-lg mb-4">
+          <label class="flex items-center gap-3 cursor-pointer mb-3">
+            <input
+              type="checkbox"
+              id="manualTakeProfitEnabled"
+              class="w-5 h-5 cursor-pointer"
+              checked
+            />
+            <span class="font-semibold">🎯 Enable Take Profit (Auto-Exit)</span>
+          </label>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm mb-2">Take Profit Amount ($)</label>
+              <input
+                type="number"
+                id="manualTakeProfitAmount"
+                min="0.5"
+                step="0.5"
+                value="2.00"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Exit when profit reaches this</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Or Growth Multiple (x)</label>
+              <input
+                type="number"
+                id="manualTakeProfitMultiple"
+                min="1.1"
+                step="0.1"
+                value="1.5"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Exit at 1.5x stake = $7.50</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Execute Button -->
+        <button
+          onclick="executeManualTrade()"
+          id="manualTradeBtn"
+          class="w-full bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-xl font-bold text-xl"
+        >
+          🚀 OPEN ACCUMULATOR POSITION
+        </button>
+      </div>
+
+      <!-- AUTO TRADING SETUP -->
+      <div
+        id="autoSetup"
+        class="hidden bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-orange-900"
+      >
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+          ⚡ Auto Trading Setup
+        </h2>
+
+        <!-- Market Selection -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold mb-3">📊 Select Market</label>
+          <div class="grid grid-cols-3 gap-3">
+            <button onclick="selectAutoMarket('R_10')" id="autoMarket-R_10" class="bg-gray-700 hover:bg-orange-700 p-4 rounded-lg font-semibold border-2 border-orange-600">
+              Volatility 10 Index
+            </button>
+            <button onclick="selectAutoMarket('R_25')" id="autoMarket-R_25" class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent">
+              Volatility 25 Index
+            </button>
+            <button onclick="selectAutoMarket('R_50')" id="autoMarket-R_50" class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent">
+              Volatility 50 Index
+            </button>
+          </div>
+        </div>
+
+        <!-- Auto Trade Parameters -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div>
+            <label class="block text-sm font-semibold mb-2">💰 Initial Stake ($)</label>
+            <input
+              type="number"
+              id="autoStake"
+              min="1"
+              step="0.5"
+              value="2.00"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">📈 Growth Rate (%)</label>
+            <select
+              id="autoGrowthRate"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            >
+              <option value="0.01">1% per tick</option>
+              <option value="0.02" selected>2% per tick</option>
+              <option value="0.03">3% per tick</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">⏱️ Duration (Ticks)</label>
+            <input
+              type="number"
+              id="autoDuration"
+              min="10"
+              max="500"
+              step="5"
+              value="40"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">🎯 Take Profit ($)</label>
+            <input
+              type="number"
+              id="autoTakeProfit"
+              min="0.5"
+              step="0.5"
+              value="1.50"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+          </div>
+        </div>
+
+        <!-- Auto Trading Rules -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div>
+            <label class="block text-sm font-semibold mb-2">🔄 Max Trades (0=∞)</label>
+            <input
+              type="number"
+              id="autoMaxTrades"
+              min="0"
+              value="20"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">💸 Max Loss ($)</label>
+            <input
+              type="number"
+              id="autoMaxLoss"
+              min="5"
+              value="50"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">💰 Max Profit ($)</label>
+            <input
+              type="number"
+              id="autoMaxProfit"
+              min="5"
+              value="100"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+            />
+          </div>
+        </div>
+
+        <!-- Martingale -->
+        <div class="bg-gray-700 bg-opacity-50 p-4 rounded-lg mb-4">
+          <label class="flex items-center gap-3 cursor-pointer mb-3">
+            <input
+              type="checkbox"
+              id="autoMartingale"
+              class="w-5 h-5 cursor-pointer"
+            />
+            <span class="font-semibold">📊 Enable Martingale (Double on Loss)</span>
+          </label>
+          <div>
+            <label class="block text-sm mb-2">Max Martingale Steps</label>
+            <input
+              type="number"
+              id="autoMartingaleSteps"
+              min="1"
+              max="5"
+              value="3"
+              class="w-full bg-gray-600 rounded-lg px-3 py-2"
+            />
+          </div>
+        </div>
+
+        <!-- Auto Trade Interval -->
+        <div class="bg-orange-900 bg-opacity-30 border border-orange-600 rounded-lg p-4 mb-4">
+          <label class="block text-sm font-semibold mb-2">⏰ Trade Interval (seconds)</label>
+          <input
+            type="number"
+            id="autoInterval"
+            min="30"
+            step="10"
+            value="60"
+            class="w-full bg-gray-600 rounded-lg px-3 py-2"
+          />
+          <p class="text-xs text-gray-300 mt-2">Wait time between trades (prevents overtrading)</p>
+        </div>
+
+        <!-- Start/Stop Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+          <button
+            onclick="startAutoTrading()"
+            id="autoStartBtn"
+            class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            🚀 START AUTO TRADING
+          </button>
+          <button
+            onclick="stopAutoTrading()"
+            id="autoStopBtn"
+            disabled
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            ⛔ STOP AUTO TRADING
+          </button>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">🎮 Session Controls</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <button
+            onclick="closePosition()"
+            id="closeBtn"
+            class="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            ⚡ CLOSE ACTIVE POSITION
+          </button>
+          <button
+            onclick="resetSession()"
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            🔄 RESET SESSION
+          </button>
+        </div>
+      </div>
+
+      <!-- Trade History -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">📜 Trade History</h2>
+          <button
+            onclick="exportHistory()"
+            class="bg-green-600 px-4 py-2 rounded-lg font-semibold"
+          >
+            📥 Export CSV
+          </button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-700">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="p-3 text-left">Time</th>
+                <th class="p-3 text-left">Market</th>
+                <th class="p-3 text-left">Growth Rate</th>
+                <th class="p-3 text-left">Duration</th>
+                <th class="p-3 text-left">Stake</th>
+                <th class="p-3 text-left">Result</th>
+                <th class="p-3 text-left">PnL</th>
+              </tr>
+            </thead>
+            <tbody id="tradeHistory" class="divide-y divide-gray-700">
+              <tr>
+                <td colspan="7" class="p-8 text-center text-gray-500">
+                  No trades yet - Start trading!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Global Variables
+      let ws, isConnected = false, isAutoTrading = false, isProcessing = false;
+      let balance = 0, totalPnl = 0, currentStake = 0, martingaleStep = 0;
+      let tradeHistory = [], prices = [], totalTrades = 0, wins = 0, losses = 0;
+      let currentMode = 'manual';
+      let selectedMarket = 'R_10', autoSelectedMarket = 'R_10';
+      let activeContract = null;
+      let autoTradingInterval = null;
+      let lastAutoTradeTime = 0;
+
+      function showToast(m, t = 'info') {
+        const c = document.getElementById('toastContainer'), d = document.createElement('div');
+        d.className = `toast ${t}`;
+        const i = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+        d.innerHTML = `<div class="text-2xl">${i[t]}</div><div><p class="font-bold text-sm">${t.toUpperCase()}</p><p class="text-sm">${m}</p></div>`;
+        c.appendChild(d);
+        setTimeout(() => d.remove(), 5000);
+      }
+
+      function connectAPI() {
+        const t = document.getElementById('apiToken').value.trim();
+        if (!t) { showToast('Enter API token', 'error'); return; }
+        ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+        ws.onopen = () => ws.send(JSON.stringify({ authorize: t }));
+        ws.onmessage = m => handleWSMessage(JSON.parse(m.data));
+        ws.onerror = () => { showToast('Connection error', 'error'); updateConnectionStatus(false); };
+        ws.onclose = () => { updateConnectionStatus(false); if (isAutoTrading) stopAutoTrading(); };
+      }
+
+      function disconnectAPI() {
+        if (ws) ws.close();
+        stopAutoTrading();
+        updateConnectionStatus(false);
+        showToast('Disconnected', 'info');
+      }
+
+      function updateConnectionStatus(c) {
+        isConnected = c;
+        document.getElementById('connectionStatus').textContent = c ? 'Connected' : 'Disconnected';
+        document.getElementById('connectionStatus').className = c ? 'status-connected font-semibold' : 'status-disconnected font-semibold';
+        document.getElementById('connectionDot').className = `w-3 h-3 rounded-full ${c ? 'bg-green-500 glow' : 'bg-red-500'}`;
+      }
+
+      function handleWSMessage(d) {
+        if (d.error) { showToast(d.error.message, 'error'); return; }
+        if (d.msg_type === 'authorize' && d.authorize) {
+          isConnected = true;
+          balance = parseFloat(d.authorize.balance);
+          updateConnectionStatus(true);
+          updateBalance();
+          const market = currentMode === 'manual' ? selectedMarket : autoSelectedMarket;
+          ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+          showToast(`Connected! Trading on ${market}`, 'success');
+        } else if (d.msg_type === 'tick') handleTick(d.tick);
+        else if (d.msg_type === 'proposal') handleProposal(d);
+        else if (d.msg_type === 'buy') handleBuy(d);
+        else if (d.msg_type === 'proposal_open_contract') handleContract(d);
+        else if (d.msg_type === 'balance') { balance = parseFloat(d.balance.balance); updateBalance(); }
+        else if (d.msg_type === 'sell') handleSell(d);
+      }
+
+      function handleTick(t) {
+        prices.push(parseFloat(t.quote));
+        if (prices.length > 100) prices.shift();
+        document.getElementById('currentPrice').textContent = parseFloat(t.quote).toFixed(2);
+      }
+
+      function selectMode(mode) {
+        currentMode = mode;
+        ['manual', 'auto'].forEach(m => {
+          document.getElementById(`modeBtn-${m}`).className = m === mode ? 'mode-btn active p-6 rounded-xl text-left' : 'mode-btn bg-gray-700 p-6 rounded-xl text-left';
+        });
+        document.getElementById('manualSetup').classList.toggle('hidden', mode !== 'manual');
+        document.getElementById('autoSetup').classList.toggle('hidden', mode !== 'auto');
+        showToast(`Switched to ${mode === 'manual' ? 'Manual' : 'Auto'} Trading`, 'info');
+      }
+
+      function selectMarket(market) {
+        selectedMarket = market;
+        ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V'].forEach(m => {
+          const btn = document.getElementById(`market-${m}`);
+          if (btn) btn.className = m === market ? 'bg-gray-700 p-4 rounded-lg font-semibold border-2 border-green-600' : 'bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent';
+        });
+        if (isConnected && ws) {
+          ws.send(JSON.stringify({ forget_all: 'ticks' }));
+          ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+          showToast(`Switched to ${market}`, 'info');
+        }
+      }
+
+      function selectAutoMarket(market) {
+        autoSelectedMarket = market;
+        ['R_10', 'R_25', 'R_50'].forEach(m => {
+          const btn = document.getElementById(`autoMarket-${m}`);
+          if (btn) btn.className = m === market ? 'bg-gray-700 p-4 rounded-lg font-semibold border-2 border-orange-600' : 'bg-gray-700 hover:bg-gray-600 p-4 rounded-lg font-semibold border-2 border-transparent';
+        });
+      }
+
+      function executeManualTrade() {
+        if (!isConnected) { showToast('Not connected!', 'error'); return; }
+        if (isProcessing || activeContract) { showToast('Position already active!', 'warning'); return; }
+        
+        const stake = parseFloat(document.getElementById('manualStake').value);
+        const growthRate = parseFloat(document.getElementById('manualGrowthRate').value);
+        const duration = parseInt(document.getElementById('manualDuration').value);
+        const takeProfitEnabled = document.getElementById('manualTakeProfitEnabled').checked;
+        const takeProfitAmount = parseFloat(document.getElementById('manualTakeProfitAmount').value);
+        const takeProfitMultiple = parseFloat(document.getElementById('manualTakeProfitMultiple').value);
+        
+        if (stake < 1) { showToast('Minimum stake is $1.00', 'error'); return; }
+        
+        isProcessing = true;
+        document.getElementById('manualTradeBtn').disabled = true;
+        document.getElementById('activePosition').textContent = 'OPENING...';
+        
+        const pr = {
+          proposal: 1,
+          amount: stake,
+          basis: 'stake',
+          contract_type: 'ACCU',
+          currency: 'USD',
+          symbol: selectedMarket,
+          growth_rate: growthRate
+        };
+        
+        activeContract = {
+          startTime: Date.now(),
+          stake: stake,
+          growthRate: growthRate,
+          duration: duration,
+          takeProfitEnabled: takeProfitEnabled,
+          takeProfitAmount: takeProfitAmount,
+          takeProfitMultiple: takeProfitMultiple,
+          market: selectedMarket,
+          mode: 'manual'
+        };
+        
+        ws.send(JSON.stringify(pr));
+      }
+
+      function handleProposal(d) {
+        if (d.error) {
+          showToast('Proposal failed: ' + d.error.message, 'error');
+          isProcessing = false;
+          document.getElementById('manualTradeBtn').disabled = false;
+          document.getElementById('activePosition').textContent = 'NONE';
+          activeContract = null;
+          return;
+        }
+        if (d.proposal) ws.send(JSON.stringify({ buy: d.proposal.id, price: d.proposal.ask_price }));
+      }
+
+      function handleBuy(d) {
+        if (d.error) {
+          showToast('Buy failed: ' + d.error.message, 'error');
+          isProcessing = false;
+          document.getElementById('manualTradeBtn').disabled = false;
+          document.getElementById('activePosition').textContent = 'NONE';
+          activeContract = null;
+          return;
+        }
+        
+        if (activeContract) {
+          activeContract.contractId = d.buy.contract_id;
+          ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: d.buy.contract_id, subscribe: 1 }));
+          document.getElementById('activePosition').textContent = 'ACTIVE';
+          showToast('Accumulator position opened!', 'success');
+        }
+      }
+
+      function handleContract(d) {
+        const c = d.proposal_open_contract;
+        
+        // Update current growth
+        if (c.buy_price && c.bid_price) {
+          const growth = ((parseFloat(c.bid_price) / parseFloat(c.buy_price)) - 1) * 100;
+          document.getElementById('currentGrowth').textContent = growth.toFixed(2) + '%';
+        }
+        
+        // Check take profit conditions
+        if (activeContract && activeContract.takeProfitEnabled && c.status === 'open') {
+          const currentProfit = parseFloat(c.profit || 0);
+          const currentMultiple = c.bid_price ? parseFloat(c.bid_price) / parseFloat(c.buy_price) : 1;
+          
+          if (currentProfit >= activeContract.takeProfitAmount || currentMultiple >= activeContract.takeProfitMultiple) {
+            ws.send(JSON.stringify({ sell: c.contract_id, price: c.bid_price }));
+            showToast('Take profit target reached!', 'success');
+          }
+        }
+        
+        if (c.status === 'sold' || c.is_sold) {
+          const p = parseFloat(c.profit), w = p > 0;
+          totalPnl += p;
+          totalTrades++;
+          if (w) { wins++; showToast(`WON! +${p.toFixed(2)}`, 'success'); }
+          else { losses++; showToast(`LOST: ${p.toFixed(2)}`, 'error'); }
+          updatePnL();
+          updateWinRate();
+          
+          addTradeToHistory({
+            time: new Date().toLocaleTimeString(),
+            market: activeContract ? activeContract.market : selectedMarket,
+            growthRate: activeContract ? (activeContract.growthRate * 100).toFixed(0) + '%' : 'N/A',
+            duration: activeContract ? activeContract.duration + ' ticks' : 'N/A',
+            stake: parseFloat(c.buy_price),
+            result: w ? 'Win' : 'Loss',
+            pnl: p
+          });
+          
+          if (currentMode === 'auto') {
+            handleMartingale(w);
+          }
+          
+          isProcessing = false;
+          document.getElementById('manualTradeBtn').disabled = false;
+          document.getElementById('activePosition').textContent = 'NONE';
+          document.getElementById('currentGrowth').textContent = '0.00%';
+          activeContract = null;
+          
+          // Check auto trading limits
+          if (isAutoTrading) {
+            const mt = parseInt(document.getElementById('autoMaxTrades').value);
+            if (mt > 0 && totalTrades >= mt) { stopAutoTrading(); showToast('Trade limit reached!', 'warning'); return; }
+            if (Math.abs(totalPnl) >= parseFloat(document.getElementById('autoMaxLoss').value)) { stopAutoTrading(); showToast('Max loss reached!', 'error'); return; }
+            if (totalPnl >= parseFloat(document.getElementById('autoMaxProfit').value)) { stopAutoTrading(); showToast('Profit target reached! 🎉', 'success'); return; }
+          }
+        }
+      }
+
+      function handleSell(d) {
+        if (d.error) {
+          showToast('Close failed: ' + d.error.message, 'error');
+        } else {
+          showToast('Position closed manually', 'info');
+        }
+      }
+
+      function closePosition() {
+        if (!activeContract || !activeContract.contractId) {
+          showToast('No active position', 'warning');
+          return;
+        }
+        ws.send(JSON.stringify({ sell: activeContract.contractId, price: 0 }));
+      }
+
+      function startAutoTrading() {
+        if (!isConnected) { showToast('Not connected!', 'error'); return; }
+        if (isProcessing || activeContract) { showToast('Close active position first!', 'warning'); return; }
+        
+        isAutoTrading = true;
+        document.getElementById('autoStartBtn').disabled = true;
+        document.getElementById('autoStopBtn').disabled = false;
+        
+        currentStake = parseFloat(document.getElementById('autoStake').value);
+        martingaleStep = 0;
+        lastAutoTradeTime = 0;
+        
+        // Switch to auto market
+        if (ws) {
+          ws.send(JSON.stringify({ forget_all: 'ticks' }));
+          ws.send(JSON.stringify({ ticks: autoSelectedMarket, subscribe: 1 }));
+        }
+        
+        showToast('Auto trading started!', 'success');
+        
+        // Start auto trading loop
+        autoTradingInterval = setInterval(executeAutoTrade, 5000); // Check every 5 seconds
+      }
+
+      function executeAutoTrade() {
+        if (!isAutoTrading || isProcessing || activeContract) return;
+        
+        const interval = parseInt(document.getElementById('autoInterval').value) * 1000;
+        const now = Date.now();
+        
+        if (now - lastAutoTradeTime < interval) return;
+        
+        lastAutoTradeTime = now;
+        
+        const stake = currentStake || parseFloat(document.getElementById('autoStake').value);
+        const growthRate = parseFloat(document.getElementById('autoGrowthRate').value);
+        const duration = parseInt(document.getElementById('autoDuration').value);
+        const takeProfit = parseFloat(document.getElementById('autoTakeProfit').value);
+        
+        isProcessing = true;
+        document.getElementById('activePosition').textContent = 'OPENING...';
+        
+        const pr = {
+          proposal: 1,
+          amount: stake,
+          basis: 'stake',
+          contract_type: 'ACCU',
+          currency: 'USD',
+          symbol: autoSelectedMarket,
+          growth_rate: growthRate
+        };
+        
+        activeContract = {
+          startTime: now,
+          stake: stake,
+          growthRate: growthRate,
+          duration: duration,
+          takeProfitEnabled: true,
+          takeProfitAmount: takeProfit,
+          takeProfitMultiple: 1.5,
+          market: autoSelectedMarket,
+          mode: 'auto'
+        };
+        
+        ws.send(JSON.stringify(pr));
+      }
+
+      function stopAutoTrading() {
+        isAutoTrading = false;
+        document.getElementById('autoStartBtn').disabled = false;
+        document.getElementById('autoStopBtn').disabled = true;
+        if (autoTradingInterval) {
+          clearInterval(autoTradingInterval);
+          autoTradingInterval = null;
+        }
+        showToast('Auto trading stopped', 'info');
+      }
+
+      function handleMartingale(w) {
+        const e = document.getElementById('autoMartingale').checked;
+        const i = parseFloat(document.getElementById('autoStake').value);
+        if (!e) { currentStake = i; martingaleStep = 0; }
+        else if (w) { currentStake = i; martingaleStep = 0; }
+        else {
+          const m = parseInt(document.getElementById('autoMartingaleSteps').value);
+          if (martingaleStep < m) { currentStake = currentStake ? currentStake * 2 : i * 2; martingaleStep++; }
+          else { currentStake = i; martingaleStep = 0; }
+        }
+        updateCurrentStakeDisplay();
+      }
+
+      function updateBalance() {
+        document.getElementById('balance').textContent = `${balance.toFixed(2)}`;
+      }
+      
+      function updatePnL() {
+        const e = document.getElementById('totalPnl');
+        e.textContent = `${totalPnl.toFixed(2)}`;
+        e.className = `text-2xl font-bold ${totalPnl >= 0 ? 'profit' : 'loss'}`;
+      }
+      
+      function updateWinRate() {
+        const r = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+        document.getElementById('winRate').textContent = `${r}%`;
+        document.getElementById('totalTrades').textContent = totalTrades;
+      }
+      
+      function updateCurrentStakeDisplay() {
+        const stake = currentStake || (currentMode === 'manual' ? parseFloat(document.getElementById('manualStake').value) : parseFloat(document.getElementById('autoStake').value));
+        document.getElementById('currentStakeDisplay').textContent = `${stake.toFixed(2)}`;
+      }
+
+      function addTradeToHistory(t) {
+        tradeHistory.unshift(t);
+        if (tradeHistory.length > 100) tradeHistory.pop();
+        document.getElementById('tradeHistory').innerHTML = tradeHistory.map(t => 
+          `<tr class="hover:bg-gray-700"><td class="p-3">${t.time}</td><td class="p-3 text-xs">${t.market}</td><td class="p-3">${t.growthRate}</td><td class="p-3">${t.duration}</td><td class="p-3">${t.stake.toFixed(2)}</td><td class="p-3"><span class="px-3 py-1 rounded-full text-xs ${t.result === 'Win' ? 'bg-green-600' : 'bg-red-600'}">${t.result}</span></td><td class="p-3 font-bold ${t.pnl >= 0 ? 'profit' : 'loss'}">${t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}</td></tr>`
+        ).join('');
+      }
+
+      function resetSession() {
+        if (!confirm('Reset all session data?')) return;
+        totalPnl = 0; totalTrades = 0; wins = 0; losses = 0; martingaleStep = 0;
+        currentStake = 0;
+        tradeHistory = []; prices = []; activeContract = null;
+        document.getElementById('tradeHistory').innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-500">No trades yet</td></tr>';
+        document.getElementById('activePosition').textContent = 'NONE';
+        document.getElementById('currentGrowth').textContent = '0.00%';
+        updatePnL(); updateWinRate(); updateCurrentStakeDisplay();
+        showToast('Session reset!', 'success');
+      }
+
+      function exportHistory() {
+        if (tradeHistory.length === 0) { showToast('No history to export', 'warning'); return; }
+        const csv = [['Time','Market','Growth Rate','Duration','Stake','Result','PnL'], ...tradeHistory.map(t => [t.time, t.market, t.growthRate, t.duration, t.stake.toFixed(2), t.result, t.pnl.toFixed(2)])].map(r => r.join(',')).join('\n');
+        const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a');
+        a.href = u; a.download = `accumulator_trades_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click(); URL.revokeObjectURL(u);
+        showToast('Exported!', 'success');
+      }
+
+      // Initialize
+      selectMode('manual');
+      selectMarket('R_10');
+      selectAutoMarket('R_10');
+      updateWinRate();
+      updateCurrentStakeDisplay();
+      showToast('Welcome to Accumulator Pro Trader! 📈', 'success');
+    </script>
+  </body>
+</html>

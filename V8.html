@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Deriv Pro Trader V6 - Multi-Strategy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .status-connected { color: #10b981; }
+      .status-disconnected { color: #ef4444; }
+      .profit { color: #10b981; }
+      .loss { color: #ef4444; }
+      
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+        width: 90%;
+      }
+      .toast {
+        background: linear-gradient(135deg, #1f2937, #111827);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease;
+        display: flex;
+        gap: 12px;
+        border-left: 4px solid #3b82f6;
+      }
+      .toast.success { border-left-color: #10b981; }
+      .toast.error { border-left-color: #ef4444; }
+      .toast.warning { border-left-color: #f59e0b; }
+      .toast.info { border-left-color: #3b82f6; }
+      
+      @keyframes slideIn {
+        from { transform: translateX(450px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      .pulse { animation: pulse 2s ease-in-out infinite; }
+      .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+      
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      
+      .strategy-btn {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+      .strategy-btn.active {
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        border-color: #60a5fa;
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+      }
+      
+      .extreme-badge {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      
+      .pro-badge {
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+      
+      /* Mobile Optimizations */
+      @media (max-width: 768px) {
+        .mobile-stack { flex-direction: column; }
+        .mobile-full { width: 100%; }
+        .mobile-text-sm { font-size: 0.875rem; }
+        .mobile-text-xs { font-size: 0.75rem; }
+        .mobile-p-3 { padding: 0.75rem; }
+        .mobile-grid-cols-1 { grid-template-columns: 1fr; }
+        .mobile-grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+        .mobile-hide { display: none; }
+        .toast-container {
+          top: 10px;
+          right: 10px;
+          left: 10px;
+          max-width: none;
+        }
+      }
+      
+      /* Connection Health */
+      .connection-health {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+      }
+      .health-excellent { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+      .health-good { background-color: #3b82f6; }
+      .health-poor { background-color: #f59e0b; animation: pulse 1s infinite; }
+      .health-dead { background-color: #ef4444; }
+      
+      /* Indicator Colors */
+      .indicator-bullish { color: #10b981; }
+      .indicator-bearish { color: #ef4444; }
+      .indicator-neutral { color: #6b7280; }
+      
+      /* Strategy Panel */
+      .strategy-panel {
+        transition: all 0.3s ease;
+        max-height: 0;
+        overflow: hidden;
+      }
+      .strategy-panel.active {
+        max-height: 1000px;
+        margin-top: 1rem;
+      }
+      
+      /* Custom Scrollbar */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #374151;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #6b7280;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen p-2 md:p-4">
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-red-900">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-bold flex items-center gap-2 md:gap-3" style="background: linear-gradient(135deg, #ef4444, #dc2626); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+              ⚡ Deriv Pro Trader V6 <span class="extreme-badge">PRO</span>
+            </h1>
+            <p class="text-xs md:text-sm text-gray-400 mt-1">
+              Multi-Market • Technical Indicators • Zero Latency
+            </p>
+          </div>
+          <div class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700 w-full md:w-auto">
+            <span id="connectionDot" class="w-3 h-3 rounded-full bg-red-500"></span>
+            <span id="connectionStatus" class="status-disconnected font-semibold text-sm md:text-base">Disconnected</span>
+            <span id="connectionHealth" class="connection-health health-dead mobile-hide"></span>
+            <span id="latencyDisplay" class="text-xs text-gray-400 mobile-hide">- ms</span>
+          </div>
+        </div>
+
+        <div class="grid mobile-grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div class="bg-gradient-to-br from-blue-600 to-blue-800 p-3 md:p-4 rounded-xl">
+            <p class="text-xs text-blue-200">Balance</p>
+            <p id="balance" class="text-xl md:text-2xl font-bold">$0.00</p>
+          </div>
+          <div class="bg-gradient-to-br from-purple-600 to-purple-800 p-3 md:p-4 rounded-xl">
+            <p class="text-xs text-purple-200">PnL</p>
+            <p id="totalPnl" class="text-xl md:text-2xl font-bold">$0.00</p>
+          </div>
+          <div class="bg-gradient-to-br from-green-600 to-green-800 p-3 md:p-4 rounded-xl">
+            <p class="text-xs text-green-200">Win Rate</p>
+            <p id="winRate" class="text-xl md:text-2xl font-bold">0%</p>
+          </div>
+          <div class="bg-gradient-to-br from-orange-600 to-orange-800 p-3 md:p-4 rounded-xl">
+            <p class="text-xs text-orange-200">Trades</p>
+            <p id="totalTrades" class="text-xl md:text-2xl font-bold">0</p>
+          </div>
+        </div>
+
+        <div class="grid mobile-grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mt-3">
+          <div class="bg-gray-700 bg-opacity-50 p-2 md:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Stake</p>
+            <p id="currentStakeDisplay" class="text-base md:text-lg font-bold text-blue-400">$0.00</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-2 md:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Signal</p>
+            <p id="currentSignal" class="text-base md:text-lg font-bold text-yellow-400">WAITING</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-2 md:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Market</p>
+            <p id="currentMarket" class="text-base md:text-lg font-bold text-green-400">-</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-2 md:p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Ticks</p>
+            <p id="tickBuffer" class="text-base md:text-lg font-bold text-purple-400">0</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Market & Trade Type Selection -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg md:text-xl font-bold mb-4">📊 Market & Trade Type</h2>
+        
+        <!-- Market Selection -->
+        <div class="mb-6">
+          <h3 class="text-md font-semibold mb-3">Market Selection</h3>
+          <div class="grid mobile-grid-cols-2 md:grid-cols-4 gap-2">
+            <button onclick="selectMarket('R_100')" id="marketBtn-R_100" class="strategy-btn active p-3 rounded-lg text-center">
+              <p class="font-bold">⚡ Volatility 100</p>
+              <p class="text-xs mt-1">Fast Moves</p>
+            </button>
+            <button onclick="selectMarket('R_75')" id="marketBtn-R_75" class="strategy-btn bg-gray-700 p-3 rounded-lg text-center">
+              <p class="font-bold">📈 Volatility 75</p>
+              <p class="text-xs mt-1">Medium Speed</p>
+            </button>
+            <button onclick="selectMarket('R_50')" id="marketBtn-R_50" class="strategy-btn bg-gray-700 p-3 rounded-lg text-center">
+              <p class="font-bold">📉 Volatility 50</p>
+              <p class="text-xs mt-1">Slower Moves</p>
+            </button>
+            <button onclick="selectMarket('R_25')" id="marketBtn-R_25" class="strategy-btn bg-gray-700 p-3 rounded-lg text-center">
+              <p class="font-bold">🎯 Volatility 25</p>
+              <p class="text-xs mt-1">Slow & Steady</p>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Trade Type Selection -->
+        <div>
+          <h3 class="text-md font-semibold mb-3">Trade Type</h3>
+          <div class="grid mobile-grid-cols-2 md:grid-cols-3 gap-2">
+            <button onclick="selectTradeType('risefall')" id="tradeTypeBtn-risefall" class="strategy-btn active p-3 rounded-lg text-center">
+              <p class="font-bold">📈 Rise/Fall</p>
+              <p class="text-xs mt-1">Up/Down Direction</p>
+            </button>
+            <button onclick="selectTradeType('digits')" id="tradeTypeBtn-digits" class="strategy-btn bg-gray-700 p-3 rounded-lg text-center">
+              <p class="font-bold">🔢 Digits</p>
+              <p class="text-xs mt-1">Digit Prediction</p>
+            </button>
+            <button onclick="selectTradeType('touchnotouch')" id="tradeTypeBtn-touchnotouch" class="strategy-btn bg-gray-700 p-3 rounded-lg text-center">
+              <p class="font-bold">🎯 Touch/No Touch</p>
+              <p class="text-xs mt-1">Barrier Trades</p>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Connection -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg md:text-xl font-bold mb-3">🔐 API Connection</h2>
+        <div class="bg-red-900 bg-opacity-30 border border-red-600 rounded-lg p-3 mb-4 text-sm">
+          <p class="font-semibold mb-1">⚠️ RISK WARNING</p>
+          <p class="text-xs text-gray-300">Use DEMO accounts first. Technical indicators don't guarantee profits.</p>
+        </div>
+        <div class="flex flex-col md:flex-row gap-2 mobile-stack">
+          <input type="password" id="apiToken" placeholder="Enter Deriv API Token" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white mobile-full" />
+          <div class="flex gap-2 mobile-full">
+            <button onclick="connectAPI()" id="connectBtn" class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 px-4 md:px-6 py-3 rounded-lg font-semibold">Connect</button>
+            <button onclick="disconnectAPI()" class="flex-1 bg-gradient-to-r from-red-600 to-red-700 px-4 md:px-6 py-3 rounded-lg font-semibold">Disconnect</button>
+          </div>
+        </div>
+        <div class="mt-3 text-xs text-gray-400">
+          <p>⚠️ Note: Demo mode active. Enter real API token for live trading.</p>
+        </div>
+      </div>
+
+      <!-- Risk Management -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg md:text-xl font-bold mb-4">⚠️ Risk Management</h2>
+        <div class="grid mobile-grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div>
+            <label class="block text-sm mb-2">Initial Stake ($)</label>
+            <input type="number" id="initialStake" min="0.35" step="0.01" value="0.35" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 md:px-4 py-2 md:py-3" />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Loss ($)</label>
+            <input type="number" id="maxLoss" min="1" value="20" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 md:px-4 py-2 md:py-3" />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Profit ($)</label>
+            <input type="number" id="maxProfit" min="1" value="50" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 md:px-4 py-2 md:py-3" />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Trades (0=∞)</label>
+            <input type="number" id="maxTrades" min="0" value="100" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 md:px-4 py-2 md:py-3" />
+          </div>
+        </div>
+        <div class="mt-4 bg-gradient-to-r from-blue-900 to-blue-800 p-3 md:p-4 rounded-lg">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" id="enableMartingale" class="w-5 h-5 cursor-pointer" />
+            <span class="font-semibold text-sm md:text-base">Enable Martingale (Doubles on Loss)</span>
+          </label>
+          <div class="mt-3">
+            <label class="block text-sm mb-2">Max Martingale Steps</label>
+            <input type="number" id="maxMartingaleSteps" min="1" max="5" value="3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+          </div>
+        </div>
+      </div>
+
+      <!-- UP/DOWN (RISE/FALL) STRATEGIES -->
+      <div id="risefallStrategies" class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-red-900">
+        <h2 class="text-lg md:text-xl font-bold mb-4 flex items-center gap-2">
+          📈 UP/DOWN (RISE/FALL) Strategies
+          <span class="extreme-badge">TECHNICAL</span>
+        </h2>
+
+        <!-- Strategy Selector -->
+        <div class="grid mobile-grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-6">
+          <button onclick="selectStrategy('emaCrossover')" id="stratBtn-emaCrossover" class="strategy-btn active p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">📊 EMA Crossover</p>
+            <p class="text-xs mt-1">9/21 EMA Momentum</p>
+          </button>
+          <button onclick="selectStrategy('rsiOversold')" id="stratBtn-rsiOversold" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">🔄 RSI Overbought</p>
+            <p class="text-xs mt-1">RSI + SMA Filter</p>
+          </button>
+          <button onclick="selectStrategy('pinBar')" id="stratBtn-pinBar" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">📍 Pin Bar Rejection</p>
+            <p class="text-xs mt-1">30-120s Timeframe</p>
+          </button>
+          <button onclick="selectStrategy('bollingerSqueeze')" id="stratBtn-bollingerSqueeze" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">🎯 Bollinger Squeeze</p>
+            <p class="text-xs mt-1">BB Width Breakout</p>
+          </button>
+          <button onclick="selectStrategy('newsFade')" id="stratBtn-newsFade" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">⚡ News Spike Fade</p>
+            <p class="text-xs mt-1">Post-News Mean Reversion</p>
+          </button>
+        </div>
+
+        <!-- EMA Crossover Strategy -->
+        <div id="emaCrossoverPanel" class="strategy-panel active bg-gray-700 bg-opacity-50 p-4 md:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base md:text-lg mb-3">📊 EMA Crossover Momentum Strategy</h3>
+          <p class="text-xs md:text-sm text-gray-300 mb-4">Uses 9-period and 21-period EMA crossovers for momentum signals with dynamic risk management</p>
+          
+          <div class="grid mobile-grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Fast EMA Period</label>
+              <input type="number" id="fastEMA" min="5" max="20" value="9" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Short-term EMA (default: 9)</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Slow EMA Period</label>
+              <input type="number" id="slowEMA" min="15" max="50" value="21" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Long-term EMA (default: 21)</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Max Loss Streak</label>
+              <input type="number" id="maxLossStreak" min="1" max="10" value="5" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Stop after consecutive losses</p>
+            </div>
+          </div>
+          
+          <div class="mt-4 grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Fast EMA</p>
+              <p id="fastEMAValue" class="font-bold text-blue-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Slow EMA</p>
+              <p id="slowEMAValue" class="font-bold text-purple-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Signal</p>
+              <p id="emaSignal" class="font-bold text-yellow-400">WAIT</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Loss Streak</p>
+              <p id="lossStreak" class="font-bold text-red-400">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- RSI Overbought/Oversold Strategy -->
+        <div id="rsiOversoldPanel" class="strategy-panel bg-gray-700 bg-opacity-50 p-4 md:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base md:text-lg mb-3">🔄 RSI Overbought/Oversold Strategy</h3>
+          <p class="text-xs md:text-sm text-gray-300 mb-4">RSI with SMA filter for overbought/oversold conditions with martingale risk management</p>
+          
+          <div class="grid mobile-grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">RSI Period</label>
+              <input type="number" id="rsiPeriod" min="7" max="30" value="14" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">RSI calculation period</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">SMA Filter Period</label>
+              <input type="number" id="smaFilterPeriod" min="10" max="30" value="20" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">SMA trend confirmation</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Max Martingale</label>
+              <input type="number" id="maxRSIMartingale" min="1" max="5" value="3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Max martingale levels</p>
+            </div>
+          </div>
+          
+          <div class="mt-4 grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">RSI Value</p>
+              <p id="rsiValue" class="font-bold text-blue-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">SMA Value</p>
+              <p id="smaValue" class="font-bold text-purple-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Signal</p>
+              <p id="rsiSignal" class="font-bold text-yellow-400">WAIT</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Martingale Level</p>
+              <p id="martingaleLevel" class="font-bold text-green-400">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pin Bar Rejection Strategy -->
+        <div id="pinBarPanel" class="strategy-panel bg-gray-700 bg-opacity-50 p-4 md:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base md:text-lg mb-3">📍 Pin Bar Rejection Strategy</h3>
+          <p class="text-xs md:text-sm text-gray-300 mb-4">Detects pin bar patterns for rejection trades with 30-120 second timeframes</p>
+          
+          <div class="grid mobile-grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Pin Bar Ratio</label>
+              <input type="number" id="pinBarRatio" min="0.5" max="0.8" step="0.1" value="0.6" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Shadow/body ratio threshold</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Body Ratio</label>
+              <input type="number" id="bodyRatio" min="0.1" max="0.5" step="0.1" value="0.3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Max body/wick ratio</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Timeframe (sec)</label>
+              <select id="pinBarTimeframe" class="w-full bg-gray-600 rounded-lg px-3 py-2">
+                <option value="30">30 Seconds</option>
+                <option value="60">60 Seconds</option>
+                <option value="120">120 Seconds</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="mt-4 grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Pattern</p>
+              <p id="pinBarPattern" class="font-bold text-blue-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Position</p>
+              <p id="pinBarPosition" class="font-bold text-purple-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Signal</p>
+              <p id="pinBarSignal" class="font-bold text-yellow-400">WAIT</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Confidence</p>
+              <p id="pinBarConfidence" class="font-bold text-green-400">-</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bollinger Squeeze Strategy -->
+        <div id="bollingerSqueezePanel" class="strategy-panel bg-gray-700 bg-opacity-50 p-4 md:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base md:text-lg mb-3">🎯 Bollinger Band Squeeze Strategy</h3>
+          <p class="text-xs md:text-sm text-gray-300 mb-4">Trades breakouts from Bollinger Band squeezes with ATR-based take profit</p>
+          
+          <div class="grid mobile-grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">BB Period</label>
+              <input type="number" id="bbPeriod" min="10" max="30" value="20" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Bollinger Band period</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Std Dev</label>
+              <input type="number" id="bbStdDev" min="1" max="3" step="0.5" value="2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Standard deviations</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Squeeze Threshold</label>
+              <input type="number" id="squeezeThreshold" min="0.05" max="0.2" step="0.01" value="0.1" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">BB Width/SMA ratio</p>
+            </div>
+          </div>
+          
+          <div class="mt-4 grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">BB Width</p>
+              <p id="bbWidth" class="font-bold text-blue-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">SMA</p>
+              <p id="bbSMA" class="font-bold text-purple-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Signal</p>
+              <p id="bbSignal" class="font-bold text-yellow-400">WAIT</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Take Profit</p>
+              <p id="bbTakeProfit" class="font-bold text-green-400">-</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- News Spike Fade Strategy -->
+        <div id="newsFadePanel" class="strategy-panel bg-gray-700 bg-opacity-50 p-4 md:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base md:text-lg mb-3">⚡ News Spike Fade Strategy</h3>
+          <p class="text-xs md:text-sm text-gray-300 mb-4">Fades news spikes with volatility-adjusted position sizing</p>
+          
+          <div class="grid mobile-grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Volatility Period</label>
+              <input type="number" id="volatilityPeriod" min="5" max="20" value="10" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Std dev calculation period</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Spike Threshold</label>
+              <input type="number" id="spikeThreshold" min="0.001" max="0.01" step="0.001" value="0.005" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Volatility spike level</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Stake Multiplier</label>
+              <input type="number" id="stakeMultiplier" min="0.1" max="1" step="0.1" value="0.5" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Risk reduction factor</p>
+            </div>
+          </div>
+          
+          <div class="mt-4 grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Volatility</p>
+              <p id="currentVolatility" class="font-bold text-blue-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Spike Detected</p>
+              <p id="spikeDetected" class="font-bold text-red-400">NO</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Signal</p>
+              <p id="newsSignal" class="font-bold text-yellow-400">WAIT</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Adjusted Stake</p>
+              <p id="adjustedStake" class="font-bold text-green-400">-</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DIGITS STRATEGIES -->
+      <div id="digitsStrategies" class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-purple-900 hidden">
+        <h2 class="text-lg md:text-xl font-bold mb-4 flex items-center gap-2">
+          🔢 DIGITS Strategies
+          <span class="pro-badge">MATHEMATICAL</span>
+        </h2>
+
+        <!-- Strategy Selector -->
+        <div class="grid mobile-grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-6">
+          <button onclick="selectStrategy('meanReversionDigits')" id="stratBtn-meanReversionDigits" class="strategy-btn p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">📊 Mean Reversion</p>
+            <p class="text-xs mt-1">Digit Frequency</p>
+          </button>
+          <button onclick="selectStrategy('sequentialPattern')" id="stratBtn-sequentialPattern" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">🔢 Sequential Pattern</p>
+            <p class="text-xs mt-1">5-Tick Sequences</p>
+          </button>
+          <button onclick="selectStrategy('volatilityDigits')" id="stratBtn-volatilityDigits" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">⚡ Volatility-Based</p>
+            <p class="text-xs mt-1">ATR Adjusted</p>
+          </button>
+          <button onclick="selectStrategy('timeBasedDigits')" id="stratBtn-timeBasedDigits" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">🕒 Time-Based Bias</p>
+            <p class="text-xs mt-1">Session Strategy</p>
+          </button>
+          <button onclick="selectStrategy('fibonacciDigits')" id="stratBtn-fibonacciDigits" class="strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left">
+            <p class="font-bold text-sm md:text-base">📐 Fibonacci Digits</p>
+            <p class="text-xs mt-1">Math Sequences</p>
+          </button>
+        </div>
+
+        <!-- Mean Reversion Digits Strategy -->
+        <div id="meanReversionDigitsPanel" class="strategy-panel bg-gray-700 bg-opacity-50 p-4 md:p-6 rounded-lg border border-gray-600">
+          <h3 class="font-bold text-base md:text-lg mb-3">📊 Mean Reversion Digits Strategy</h3>
+          <p class="text-xs md:text-sm text-gray-300 mb-4">Analyzes digit frequency in last 100 ticks for mean reversion opportunities</p>
+          
+          <div class="grid mobile-grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Lookback Ticks</label>
+              <input type="number" id="lookbackTicks" min="50" max="200" value="100" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Ticks to analyze</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">RSI Period</label>
+              <input type="number" id="digitRSIPeriod" min="7" max="20" value="14" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">RSI for timing</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Kelly Stake %</label>
+              <input type="number" id="kellyPercentage" min="1" max="10" value="2" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Kelly criterion %</p>
+            </div>
+          </div>
+          
+          <div class="mt-4 grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Least Frequent</p>
+              <p id="leastFrequentDigit" class="font-bold text-blue-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Most Frequent</p>
+              <p id="mostFrequentDigit" class="font-bold text-purple-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Signal Type</p>
+              <p id="digitSignalType" class="font-bold text-yellow-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Target Digit</p>
+              <p id="targetDigit" class="font-bold text-green-400">-</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sequential Pattern Detection Strategy -->
+        <div id="sequentialPatternPanel" class="strategy-panel bg-gray-700 bg-opacity-50 p-4 md:p-6 rounded-lg border border-gray-600 hidden">
+          <h3 class="font-bold text-base md:text-lg mb-3">🔢 Sequential Pattern Detection Strategy</h3>
+          <p class="text-xs md:text-sm text-gray-300 mb-4">Detects and trades 5-tick digit patterns with cooldown periods</p>
+          
+          <div class="grid mobile-grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Sequence Length</label>
+              <input type="number" id="sequenceLength" min="3" max="7" value="5" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Digits in pattern</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Max Pattern Trades</label>
+              <input type="number" id="maxPatternTrades" min="1" max="5" value="3" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Max trades per pattern</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold">Cooldown Ticks</label>
+              <input type="number" id="cooldownTicks" min="5" max="20" value="10" class="w-full bg-gray-600 rounded-lg px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Ticks between trades</p>
+            </div>
+          </div>
+          
+          <div class="mt-4 grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Current Pattern</p>
+              <p id="currentPattern" class="font-bold text-blue-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Prediction</p>
+              <p id="patternPrediction" class="font-bold text-purple-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Signal Type</p>
+              <p id="patternSignalType" class="font-bold text-yellow-400">-</p>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg">
+              <p class="text-xs text-gray-400">Cooldown</p>
+              <p id="patternCooldown" class="font-bold text-red-400">0</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Technical Indicators Dashboard -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg md:text-xl font-bold mb-4">📊 Technical Indicators</h2>
+        <div class="grid mobile-grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">RSI (14)</p>
+            <p id="indicatorRSI" class="text-lg font-bold">-</p>
+            <p id="rsiSignalText" class="text-xs">-</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">EMA (9)</p>
+            <p id="indicatorEMA9" class="text-lg font-bold">-</p>
+            <p id="emaSignalText" class="text-xs">-</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">SMA (20)</p>
+            <p id="indicatorSMA20" class="text-lg font-bold">-</p>
+            <p id="smaSignalText" class="text-xs">-</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">ATR (14)</p>
+            <p id="indicatorATR" class="text-lg font-bold">-</p>
+            <p id="atrSignalText" class="text-xs">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 mb-4 shadow-2xl border border-gray-700">
+        <h2 class="text-lg md:text-xl font-bold mb-4">🎮 Trading Controls</h2>
+        <div class="grid mobile-grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+          <button onclick="startAutoTrading()" id="startBtn" class="bg-gradient-to-r from-green-600 to-green-700 px-4 md:px-6 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg">🚀 START</button>
+          <button onclick="stopAutoTrading()" id="stopBtn" disabled class="bg-gradient-to-r from-red-600 to-red-700 px-4 md:px-6 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg">⛔ STOP</button>
+          <button onclick="executeSingleTrade()" id="singleBtn" class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 md:px-6 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg">⚡ SINGLE</button>
+          <button onclick="resetSession()" class="bg-gradient-to-r from-yellow-600 to-yellow-700 px-4 md:px-6 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg">🔄 RESET</button>
+        </div>
+      </div>
+
+      <!-- Trade History -->
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 md:p-6 shadow-2xl border border-gray-700">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
+          <h2 class="text-lg md:text-xl font-bold">📜 Trade History</h2>
+          <button onclick="exportHistory()" class="bg-purple-600 px-4 py-2 rounded-lg font-semibold text-sm md:text-base w-full md:w-auto">📥 Export CSV</button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-700 custom-scrollbar">
+          <table class="w-full text-xs md:text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="p-2 md:p-3 text-left">Time</th>
+                <th class="p-2 md:p-3 text-left">Market</th>
+                <th class="p-2 md:p-3 text-left">Type</th>
+                <th class="p-2 md:p-3 text-left mobile-hide">Strategy</th>
+                <th class="p-2 md:p-3 text-left">Direction</th>
+                <th class="p-2 md:p-3 text-left">Stake</th>
+                <th class="p-2 md:p-3 text-left">Result</th>
+                <th class="p-2 md:p-3 text-left">PnL</th>
+              </tr>
+            </thead>
+            <tbody id="tradeHistory" class="divide-y divide-gray-700">
+              <tr><td colspan="8" class="p-6 md:p-8 text-center text-gray-500">No trades yet - Start trading!</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // =====================
+      // GLOBAL VARIABLES
+      // =====================
+      let ws = null;
+      let isConnected = false;
+      let isTrading = false;
+      let isProcessing = false;
+      let balance = 1000.00; // Demo balance
+      let totalPnl = 0;
+      let currentStake = 0;
+      let martingaleStep = 0;
+      let tradeHistory = [];
+      let tickData = [];
+      let prices = [];
+      let totalTrades = 0;
+      let wins = 0;
+      let losses = 0;
+      let lossStreakCount = 0;
+      let currentStrategy = "emaCrossover";
+      let currentMarket = "R_100";
+      let currentTradeType = "risefall";
+      let reconnectTimeout = null;
+      let reconnectAttempts = 0;
+      const MAX_RECONNECT_ATTEMPTS = 5;
+      const RECONNECT_DELAY = 3000;
+      let tickSubscriptionId = null;
+      let demoMode = true;
+      
+      // Technical Indicators Data
+      let indicators = {
+        rsi: { values: [], current: null },
+        ema9: { values: [], current: null },
+        ema21: { values: [], current: null },
+        sma20: { values: [], current: null },
+        atr: { values: [], current: null }
+      };
+      
+      // Strategy States
+      let strategyStates = {
+        emaCrossover: { fastEMA: null, slowEMA: null, lastSignal: null, lastFastEMA: null, lastSlowEMA: null },
+        rsiOversold: { rsiValue: null, smaValue: null, lastTradeWasLoss: false },
+        pinBar: { lastPattern: null, patternCount: 0 },
+        bollingerSqueeze: { bbWidth: null, squeezeDetected: false },
+        newsFade: { volatility: null, lastSpikeTime: 0 }
+      };
+
+      // =====================
+      // UTILITY FUNCTIONS
+      // =====================
+      function showToast(message, type = "info") {
+        const container = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+        const icons = {
+          success: "✅",
+          error: "❌",
+          warning: "⚠️",
+          info: "ℹ️"
+        };
+        toast.innerHTML = `
+          <div class="text-2xl">${icons[type]}</div>
+          <div>
+            <p class="font-bold text-sm">${type.toUpperCase()}</p>
+            <p class="text-sm">${message}</p>
+          </div>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+
+      function updateConnectionStatus(connected) {
+        isConnected = connected;
+        const statusText = connected ? "Connected" : "Disconnected";
+        const statusClass = connected ? "status-connected font-semibold" : "status-disconnected font-semibold";
+        const dotClass = `w-3 h-3 rounded-full ${connected ? "bg-green-500 glow" : "bg-red-500"}`;
+        
+        document.getElementById("connectionStatus").textContent = statusText;
+        document.getElementById("connectionStatus").className = statusClass;
+        document.getElementById("connectionDot").className = dotClass;
+        
+        if (connected) {
+          reconnectAttempts = 0;
+          clearTimeout(reconnectTimeout);
+        }
+      }
+
+      // =====================
+      // WEBSOCKET CONNECTION (FIXED)
+      // =====================
+      function connectAPI() {
+        const token = document.getElementById("apiToken").value.trim();
+        
+        // If no token, use demo mode
+        if (!token) {
+          demoMode = true;
+          simulateWebSocketConnection();
+          return;
+        }
+        
+        // Real API connection
+        demoMode = false;
+        
+        // Clean up existing connection
+        disconnectAPI();
+        
+        // Create new WebSocket connection
+        try {
+          ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+          
+          ws.onopen = () => {
+            showToast("Connecting to Deriv API...", "info");
+            ws.send(JSON.stringify({ authorize: token }));
+          };
+          
+          ws.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              handleWSMessage(data);
+            } catch (error) {
+              console.error("Error parsing WebSocket message:", error);
+            }
+          };
+          
+          ws.onerror = (error) => {
+            console.error("WebSocket error:", error);
+            showToast("Connection error", "error");
+            updateConnectionStatus(false);
+            attemptReconnect();
+          };
+          
+          ws.onclose = (event) => {
+            console.log("WebSocket closed:", event.code, event.reason);
+            updateConnectionStatus(false);
+            if (isTrading) stopAutoTrading();
+            
+            // Attempt reconnect if not manually disconnected
+            if (event.code !== 10000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+              attemptReconnect();
+            }
+          };
+          
+        } catch (error) {
+          console.error("Error creating WebSocket:", error);
+          showToast("Failed to create WebSocket connection", "error");
+        }
+      }
+
+      function simulateWebSocketConnection() {
+        // Simulate WebSocket connection for demo
+        showToast("Starting DEMO mode with simulated data...", "info");
+        updateConnectionStatus(true);
+        demoMode = true;
+        
+        // Start generating demo ticks
+        startDemoTicks();
+      }
+
+      function startDemoTicks() {
+        // Generate initial price
+        let currentPrice = 10000 + Math.random() * 100;
+        
+        // Generate ticks every 500ms
+        setInterval(() => {
+          if (!isConnected) return;
+          
+          // Simulate price movement
+          const change = (Math.random() - 0.5) * 10;
+          currentPrice += change;
+          
+          // Create simulated tick
+          const simulatedTick = {
+            quote: currentPrice.toFixed(2),
+            epoch: Date.now() / 1000
+          };
+          
+          handleTick(simulatedTick);
+          
+        }, 500);
+      }
+
+      function disconnectAPI() {
+        // Clear any pending reconnection
+        clearTimeout(reconnectTimeout);
+        reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
+        
+        // Close WebSocket if open
+        if (ws) {
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close(1000, "Manual disconnect");
+          }
+          ws = null;
+        }
+        
+        tickSubscriptionId = null;
+        stopAutoTrading();
+        updateConnectionStatus(false);
+        showToast("Disconnected", "info");
+        demoMode = false;
+      }
+
+      function attemptReconnect() {
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          showToast("Max reconnection attempts reached", "error");
+          return;
+        }
+        
+        reconnectAttempts++;
+        const delay = RECONNECT_DELAY * reconnectAttempts;
+        
+        showToast(`Reconnecting in ${delay/100} seconds... (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`, "warning");
+        
+        reconnectTimeout = setTimeout(() => {
+          if (!isConnected) {
+            connectAPI();
+          }
+        }, delay);
+      }
+
+      // =====================
+      // MARKET & TRADE TYPE SELECTION
+      // =====================
+      function selectMarket(market) {
+        currentMarket = market;
+        const marketName = market.replace('R_', 'Vol ') + ' Index';
+        document.getElementById("currentMarket").textContent = marketName;
+        
+        // Update button states
+        const markets = ["R_100", "R_75", "R_50", "R_25"];
+        markets.forEach(m => {
+          const btn = document.getElementById(`marketBtn-${m}`);
+          if (btn) {
+            btn.className = m === market ? 
+              "strategy-btn active p-3 rounded-lg text-center" :
+              "strategy-btn bg-gray-700 p-3 rounded-lg text-center";
+          }
+        });
+        
+        showToast(`Market changed to: ${marketName}`, "info");
+      }
+
+      function selectTradeType(type) {
+        currentTradeType = type;
+        
+        // Update button states
+        const types = ["risefall", "digits", "touchnotouch"];
+        types.forEach(t => {
+          const btn = document.getElementById(`tradeTypeBtn-${t}`);
+          if (btn) {
+            btn.className = t === type ? 
+              "strategy-btn active p-3 rounded-lg text-center" :
+              "strategy-btn bg-gray-700 p-3 rounded-lg text-center";
+          }
+        });
+        
+        // Show/hide strategy sections
+        const risefallSection = document.getElementById("risefallStrategies");
+        const digitsSection = document.getElementById("digitsStrategies");
+        
+        if (risefallSection) {
+          risefallSection.classList.toggle("hidden", type !== "risefall");
+        }
+        if (digitsSection) {
+          digitsSection.classList.toggle("hidden", type !== "digits");
+        }
+        
+        // Set default strategy based on trade type
+        if (type === "risefall") {
+          selectStrategy("emaCrossover");
+        } else if (type === "digits") {
+          selectStrategy("meanReversionDigits");
+        }
+        
+        showToast(`Trade type changed to: ${type}`, "info");
+      }
+
+      // =====================
+      // STRATEGY SELECTION
+      // =====================
+      function selectStrategy(strategy) {
+        currentStrategy = strategy;
+        
+        // Update all strategy buttons
+        const allStrategies = [
+          "emaCrossover", "rsiOversold", "pinBar", "bollingerSqueeze", "newsFade",
+          "meanReversionDigits", "sequentialPattern"
+        ];
+        
+        allStrategies.forEach(s => {
+          const btn = document.getElementById(`stratBtn-${s}`);
+          if (btn) {
+            btn.className = s === strategy ? 
+              "strategy-btn active p-3 md:p-4 rounded-xl text-left" :
+              "strategy-btn bg-gray-700 p-3 md:p-4 rounded-xl text-left";
+          }
+        });
+        
+        // Show/hide strategy panels
+        const panels = [
+          "emaCrossoverPanel", "rsiOversoldPanel", "pinBarPanel", "bollingerSqueezePanel", "newsFadePanel",
+          "meanReversionDigitsPanel", "sequentialPatternPanel"
+        ];
+        
+        panels.forEach(panel => {
+          const panelEl = document.getElementById(panel);
+          if (panelEl) {
+            const isActive = panel.includes(strategy);
+            if (isActive) {
+              panelEl.classList.remove("hidden");
+              panelEl.classList.add("active");
+            } else {
+              panelEl.classList.remove("active");
+              panelEl.classList.add("hidden");
+            }
+          }
+        });
+        
+        showToast(`Strategy activated: ${strategy}`, "info");
+      }
+
+      // =====================
+      // WEBSOCKET MESSAGE HANDLER
+      // =====================
+      function handleWSMessage(data) {
+        if (data.error) {
+          showToast(data.error.message, "error");
+          return;
+        }
+        
+        switch (data.msg_type) {
+          case "authorize":
+            if (data.authorize) {
+              isConnected = true;
+              balance = parseFloat(data.authorize.balance);
+              updateConnectionStatus(true);
+              updateBalance();
+              
+              // Subscribe to ticks
+              const subscribeMsg = { 
+                ticks: currentMarket, 
+                subscribe: 1
+              };
+              ws.send(JSON.stringify(subscribeMsg));
+              
+              showToast("Connected successfully! ⚡", "success");
+            }
+            break;
+            
+          case "tick":
+            handleTick(data.tick);
+            break;
+            
+          case "forget":
+            // Handle unsubscribe confirmation
+            break;
+        }
+      }
+
+      // =====================
+      // TICK PROCESSING & INDICATOR CALCULATION
+      // =====================
+      function handleTick(tick) {
+        try {
+          const price = parseFloat(tick.quote);
+          
+          // Store tick subscription ID
+          if (tick.id && !tickSubscriptionId) {
+            tickSubscriptionId = tick.id;
+          }
+          
+          // Add to price buffer
+          prices.push(price);
+          if (prices.length > 200) prices.shift();
+          
+          // Update tick buffer display SAFELY
+          const tickBufferElement = document.getElementById("tickBuffer");
+          if (tickBufferElement) {
+            tickBufferElement.textContent = prices.length;
+          }
+          
+          // Calculate technical indicators when we have enough data
+          if (prices.length >= 20) {
+            calculateIndicators();
+            analyzeMarket();
+          }
+        } catch (error) {
+          console.error("Error in handleTick:", error);
+        }
+      }
+
+      function calculateIndicators() {
+        if (prices.length < 20) return;
+        
+        const currentPrice = prices[prices.length - 1];
+        
+        // Calculate EMA (9)
+        const ema9 = calculateEMA(prices, 9);
+        indicators.ema9.current = ema9[ema9.length - 1];
+        updateIndicatorDisplay("indicatorEMA9", indicators.ema9.current);
+        
+        // Calculate EMA (21) for crossover strategy
+        if (prices.length >= 21) {
+          const ema21 = calculateEMA(prices, 21);
+          indicators.ema21.current = ema21[ema21.length - 1];
+          updateIndicatorDisplay("slowEMAValue", indicators.ema21.current);
+        }
+        
+        // Calculate SMA (20)
+        if (prices.length >= 20) {
+          const sma20 = calculateSMA(prices, 20);
+          indicators.sma20.current = sma20[sma20.length - 1];
+          updateIndicatorDisplay("indicatorSMA20", indicators.sma20.current);
+        }
+        
+        // Calculate RSI (14)
+        if (prices.length >= 14) {
+          const rsi = calculateRSI(prices, 14);
+          indicators.rsi.current = rsi[rsi.length - 1];
+          updateIndicatorDisplay("indicatorRSI", indicators.rsi.current);
+          
+          // Update RSI signal text
+          const rsiSignal = document.getElementById("rsiSignalText");
+          if (rsiSignal) {
+            if (indicators.rsi.current > 70) {
+              rsiSignal.textContent = "OVERBOUGHT";
+              rsiSignal.className = "text-red-400";
+            } else if (indicators.rsi.current < 30) {
+              rsiSignal.textContent = "OVERSOLD";
+              rsiSignal.className = "text-green-400";
+            } else {
+              rsiSignal.textContent = "NEUTRAL";
+              rsiSignal.className = "text-gray-400";
+            }
+          }
+          
+          updateIndicatorDisplay("rsiValue", indicators.rsi.current);
+        }
+        
+        // Store for strategy states
+        strategyStates.emaCrossover.lastFastEMA = strategyStates.emaCrossover.fastEMA;
+        strategyStates.emaCrossover.lastSlowEMA = strategyStates.emaCrossover.slowEMA;
+        strategyStates.emaCrossover.fastEMA = indicators.ema9.current;
+        strategyStates.emaCrossover.slowEMA = indicators.ema21.current;
+        strategyStates.rsiOversold.rsiValue = indicators.rsi.current;
+        strategyStates.rsiOversold.smaValue = indicators.sma20.current;
+        
+        // Update display values
+        updateIndicatorDisplay("fastEMAValue", indicators.ema9.current);
+        updateIndicatorDisplay("smaValue", indicators.sma20.current);
+      }
+
+      function updateIndicatorDisplay(elementId, value) {
+        const element = document.getElementById(elementId);
+        if (element && value !== null && !isNaN(value)) {
+          element.textContent = value.toFixed(2);
+        }
+      }
+
+      // Technical Indicator Calculations
+      function calculateRSI(prices, period) {
+        const rsiValues = [];
+        for (let i = period; i < prices.length; i++) {
+          const gains = [];
+          const losses = [];
+          
+          for (let j = i - period + 1; j <= i; j++) {
+            const change = prices[j] - prices[j-1];
+            if (change >= 0) {
+              gains.push(change);
+              losses.push(0);
+            } else {
+              gains.push(0);
+              losses.push(Math.abs(change));
+            }
+          }
+          
+          const avgGain = gains.reduce((a, b) => a + b, 0) / period;
+          const avgLoss = losses.reduce((a, b) => a + b, 0) / period;
+          
+          if (avgLoss === 0) {
+            rsiValues.push(100);
+          } else {
+            const rs = avgGain / avgLoss;
+            const rsi = 100 - (100 / (1 + rs));
+            rsiValues.push(rsi);
+          }
+        }
+        return rsiValues;
+      }
+
+      function calculateSMA(prices, period) {
+        const smaValues = [];
+        for (let i = period - 1; i < prices.length; i++) {
+          const sum = prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+          smaValues.push(sum / period);
+        }
+        return smaValues;
+      }
+
+      function calculateEMA(prices, period) {
+        const emaValues = [];
+        const multiplier = 2 / (period + 1);
+        
+        // Start with SMA
+        let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        emaValues.push(ema);
+        
+        // Calculate EMA for remaining prices
+        for (let i = period; i < prices.length; i++) {
+          ema = (prices[i] - ema) * multiplier + ema;
+          emaValues.push(ema);
+        }
+        
+        return emaValues;
+      }
+
+      // =====================
+      // STRATEGY IMPLEMENTATIONS
+      // =====================
+      function analyzeMarket() {
+        if (!isConnected || prices.length < 20) return;
+        
+        let signal = null;
+        
+        switch (currentStrategy) {
+          case "emaCrossover":
+            signal = analyzeEMACrossover();
+            break;
+          case "rsiOversold":
+            signal = analyzeRSIOversold();
+            break;
+          case "pinBar":
+            signal = analyzePinBar();
+            break;
+          case "bollingerSqueeze":
+            signal = analyzeBollingerSqueeze();
+            break;
+          case "newsFade":
+            signal = analyzeNewsFade();
+            break;
+        }
+        
+        // Update signal display
+        if (signal) {
+          document.getElementById("currentSignal").textContent = signal;
+          
+          // Execute trade if auto trading is on
+          if (isTrading && !isProcessing) {
+            executeTrade(signal);
+          }
+        }
+      }
+
+      // EMA Crossover Strategy
+      function analyzeEMACrossover() {
+        const fastEMA = strategyStates.emaCrossover.fastEMA;
+        const slowEMA = strategyStates.emaCrossover.slowEMA;
+        const lastFastEMA = strategyStates.emaCrossover.lastFastEMA;
+        const lastSlowEMA = strategyStates.emaCrossover.lastSlowEMA;
+        
+        if (!fastEMA || !slowEMA || !lastFastEMA || !lastSlowEMA) return null;
+        
+        // Update display
+        updateIndicatorDisplay("fastEMAValue", fastEMA);
+        updateIndicatorDisplay("slowEMAValue", slowEMA);
+        document.getElementById("lossStreak").textContent = lossStreakCount;
+        
+        // Check for crossover
+        let signal = null;
+        if (lastFastEMA < lastSlowEMA && fastEMA > slowEMA) {
+          signal = "RISE";
+          strategyStates.emaCrossover.lastSignal = "RISE";
+        } else if (lastFastEMA > lastSlowEMA && fastEMA < slowEMA) {
+          signal = "FALL";
+          strategyStates.emaCrossover.lastSignal = "FALL";
+        }
+        
+        // Check max loss streak
+        const maxLossStreak = parseInt(document.getElementById("maxLossStreak").value) || 5;
+        if (lossStreakCount >= maxLossStreak) {
+          signal = null;
+          showToast("Max loss streak reached! Stopping trades.", "warning");
+        }
+        
+        const emaSignalElement = document.getElementById("emaSignal");
+        if (emaSignalElement) {
+          emaSignalElement.textContent = signal || "WAIT";
+          emaSignalElement.className = signal ? 
+            (signal === "RISE" ? "font-bold text-green-400" : "font-bold text-red-400") : 
+            "font-bold text-yellow-400";
+        }
+        
+        return signal;
+      }
+
+      // RSI Overbought/Oversold Strategy
+      function analyzeRSIOversold() {
+        const rsi = strategyStates.rsiOversold.rsiValue;
+        const sma = strategyStates.rsiOversold.smaValue;
+        const currentPrice = prices[prices.length - 1];
+        
+        if (!rsi || !sma) return null;
+        
+        // Update display
+        updateIndicatorDisplay("rsiValue", rsi);
+        updateIndicatorDisplay("smaValue", sma);
+        
+        let signal = null;
+        if (rsi < 30 && currentPrice > sma) {
+          signal = "RISE";
+        } else if (rsi > 70 && currentPrice < sma) {
+          signal = "FALL";
+        }
+        
+        // Martingale logic
+        const maxMartingale = parseInt(document.getElementById("maxRSIMartingale").value) || 3;
+        const martingaleLevel = strategyStates.rsiOversold.lastTradeWasLoss ? 
+          Math.min(martingaleStep, maxMartingale) : 0;
+        
+        document.getElementById("martingaleLevel").textContent = martingaleLevel;
+        document.getElementById("rsiSignal").textContent = signal || "WAIT";
+        
+        return signal;
+      }
+
+      // Pin Bar Rejection Strategy (Simplified)
+      function analyzePinBar() {
+        if (prices.length < 10) return null;
+        
+        // Simple pattern detection
+        const recentPrices = prices.slice(-5);
+        const high = Math.max(...recentPrices);
+        const low = Math.min(...recentPrices);
+        const currentPrice = prices[prices.length - 1];
+        
+        let signal = null;
+        // Simple logic for demo
+        if (currentPrice > high * 0.99) {
+          signal = "RISE";
+        } else if (currentPrice < low * 1.01) {
+          signal = "FALL";
+        }
+        
+        document.getElementById("pinBarSignal").textContent = signal || "WAIT";
+        return signal;
+      }
+
+      // Bollinger Squeeze Strategy (Simplified)
+      function analyzeBollingerSqueeze() {
+        if (prices.length < 30) return null;
+        
+        // Simple volatility calculation
+        const recentPrices = prices.slice(-20);
+        const avg = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
+        const variance = recentPrices.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / recentPrices.length;
+        const stdDev = Math.sqrt(variance);
+        const currentPrice = prices[prices.length - 1];
+        
+        let signal = null;
+        // Simple breakout logic
+        if (currentPrice > avg + stdDev) {
+          signal = "RISE";
+        } else if (currentPrice < avg - stdDev) {
+          signal = "FALL";
+        }
+        
+        document.getElementById("bbSignal").textContent = signal || "WAIT";
+        return signal;
+      }
+
+      // News Spike Fade Strategy (Simplified)
+      function analyzeNewsFade() {
+        if (prices.length < 10) return null;
+        
+        // Simple volatility detection
+        const recentChanges = [];
+        for (let i = prices.length - 5; i < prices.length - 1; i++) {
+          recentChanges.push(Math.abs(prices[i + 1] - prices[i]));
+        }
+        const avgChange = recentChanges.reduce((a, b) => a + b, 0) / recentChanges.length;
+        const currentChange = Math.abs(prices[prices.length - 1] - prices[prices.length - 2]);
+        
+        let signal = null;
+        // Fade large moves
+        if (currentChange > avgChange * 2) {
+          // Fade the move
+          signal = prices[prices.length - 1] > prices[prices.length - 2] ? "FALL" : "RISE";
+        }
+        
+        document.getElementById("newsSignal").textContent = signal || "WAIT";
+        return signal;
+      }
+
+      // =====================
+      // TRADE EXECUTION
+      // =====================
+      async function executeTrade(signal) {
+        if (isProcessing) return;
+        
+        isProcessing = true;
+        document.getElementById("singleBtn").disabled = true;
+        
+        // Get stake
+        const baseStake = parseFloat(document.getElementById("initialStake").value) || 0.35;
+        let stake = currentStake || baseStake;
+        
+        // Show trade execution
+        showToast(`Executing ${signal} trade with $${stake.toFixed(2)}`, "info");
+        
+        // Simulate trade processing (2 seconds for demo)
+        setTimeout(() => {
+          // Simulate trade result
+          const isWin = Math.random() > 0.45; // 55% win rate for demo
+          const profitMultiplier = isWin ? 0.85 : -1; // 85% payout on win
+          const profit = stake * profitMultiplier;
+          
+          // Update stats
+          totalPnl += profit;
+          totalTrades++;
+          balance += profit;
+          
+          if (isWin) {
+            wins++;
+            lossStreakCount = 0;
+            showToast(`Trade WON! +$${Math.abs(profit).toFixed(2)}`, "success");
+          } else {
+            losses++;
+            lossStreakCount++;
+            showToast(`Trade LOST: -$${Math.abs(profit).toFixed(2)}`, "error");
+          }
+          
+          updateBalance();
+          updatePnL();
+          updateWinRate();
+          
+          // Add to history
+          addTradeToHistory({
+            time: new Date().toLocaleTimeString(),
+            market: currentMarket,
+            type: currentTradeType,
+            strategy: currentStrategy,
+            direction: signal,
+            stake: stake,
+            result: isWin ? "Win" : "Loss",
+            pnl: profit
+          });
+          
+          // Handle martingale
+          handleMartingale(isWin);
+          
+          // Check limits
+          const maxTrades = parseInt(document.getElementById("maxTrades").value) || 100;
+          if (maxTrades > 0 && totalTrades >= maxTrades) {
+            stopAutoTrading();
+            showToast("Trade limit reached!", "warning");
+          }
+          
+          const maxLoss = parseFloat(document.getElementById("maxLoss").value) || 20;
+          if (Math.abs(totalPnl) >= maxLoss && totalPnl < 0) {
+            stopAutoTrading();
+            showToast("Max loss reached!", "error");
+          }
+          
+          const maxProfit = parseFloat(document.getElementById("maxProfit").value) || 50;
+          if (totalPnl >= maxProfit) {
+            stopAutoTrading();
+            showToast("Profit target achieved! 🎉", "success");
+          }
+          
+          // Reset processing flag
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          
+        }, 2000);
+      }
+
+      function handleMartingale(isWin) {
+        const enableMartingale = document.getElementById("enableMartingale").checked;
+        const initialStake = parseFloat(document.getElementById("initialStake").value) || 0.35;
+        const maxSteps = parseInt(document.getElementById("maxMartingaleSteps").value) || 3;
+        
+        if (!enableMartingale) {
+          currentStake = initialStake;
+          martingaleStep = 0;
+        } else if (isWin) {
+          currentStake = initialStake;
+          martingaleStep = 0;
+          strategyStates.rsiOversold.lastTradeWasLoss = false;
+        } else {
+          strategyStates.rsiOversold.lastTradeWasLoss = true;
+          if (martingaleStep < maxSteps) {
+            currentStake = currentStake > 0 ? currentStake * 2 : initialStake * 2;
+            martingaleStep++;
+          } else {
+            currentStake = initialStake;
+            martingaleStep = 0;
+          }
+        }
+        
+        updateCurrentStakeDisplay();
+      }
+
+      // =====================
+      // UI UPDATE FUNCTIONS
+      // =====================
+      function updateBalance() {
+        document.getElementById("balance").textContent = `$${balance.toFixed(2)}`;
+      }
+
+      function updatePnL() {
+        const element = document.getElementById("totalPnl");
+        if (element) {
+          element.textContent = `$${totalPnl.toFixed(2)}`;
+          element.className = `text-xl md:text-2xl font-bold ${totalPnl >= 0 ? "profit" : "loss"}`;
+        }
+      }
+
+      function updateWinRate() {
+        const rate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+        document.getElementById("winRate").textContent = `${rate}%`;
+        document.getElementById("totalTrades").textContent = totalTrades;
+        
+        const maxTrades = parseInt(document.getElementById("maxTrades").value) || 100;
+        const tradesRemaining = document.getElementById("tradesRemaining");
+        if (tradesRemaining) {
+          tradesRemaining.textContent = maxTrades > 0 ? Math.max(0, maxTrades - totalTrades) : "∞";
+        }
+      }
+
+      function updateCurrentStakeDisplay() {
+        document.getElementById("currentStakeDisplay").textContent = `$${currentStake.toFixed(2)}`;
+      }
+
+      function addTradeToHistory(trade) {
+        tradeHistory.unshift(trade);
+        if (tradeHistory.length > 50) tradeHistory.pop();
+        
+        const historyBody = document.getElementById("tradeHistory");
+        if (!historyBody) return;
+        
+        const historyHTML = tradeHistory.map(t => `
+          <tr class="hover:bg-gray-700">
+            <td class="p-2 md:p-3">${t.time}</td>
+            <td class="p-2 md:p-3">${t.market}</td>
+            <td class="p-2 md:p-3">${t.type}</td>
+            <td class="p-2 md:p-3 mobile-hide">${t.strategy}</td>
+            <td class="p-2 md:p-3 font-bold">${t.direction}</td>
+            <td class="p-2 md:p-3">$${t.stake.toFixed(2)}</td>
+            <td class="p-2 md:p-3">
+              <span class="px-2 py-1 rounded-full text-xs ${t.result === "Win" ? "bg-green-600" : "bg-red-600"}">
+                ${t.result}
+              </span>
+            </td>
+            <td class="p-2 md:p-3 font-bold ${t.pnl >= 0 ? "profit" : "loss"}">
+              ${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}
+            </td>
+          </tr>
+        `).join("");
+        
+        historyBody.innerHTML = historyHTML || 
+          '<tr><td colspan="8" class="p-6 md:p-8 text-center text-gray-500">No trades yet - Start trading!</td></tr>';
+      }
+
+      // =====================
+      // CONTROL FUNCTIONS
+      // =====================
+      function startAutoTrading() {
+        if (!isConnected) {
+          showToast("Not connected! Starting DEMO mode...", "warning");
+          simulateWebSocketConnection();
+        }
+        
+        if (prices.length < 20) {
+          showToast("Collecting market data...", "info");
+        }
+        
+        isTrading = true;
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        
+        currentStake = parseFloat(document.getElementById("initialStake").value) || 0.35;
+        martingaleStep = 0;
+        
+        showToast("AUTO TRADING STARTED! ⚡", "success");
+      }
+
+      function stopAutoTrading() {
+        isTrading = false;
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+        showToast("Trading stopped", "info");
+      }
+
+      function resetSession() {
+        if (!confirm("Reset trading session? All statistics will be cleared.")) return;
+        
+        totalPnl = 0;
+        totalTrades = 0;
+        wins = 0;
+        losses = 0;
+        lossStreakCount = 0;
+        martingaleStep = 0;
+        currentStake = parseFloat(document.getElementById("initialStake").value) || 0.35;
+        tradeHistory = [];
+        prices = [];
+        
+        // Reset balance in demo mode
+        if (demoMode) {
+          balance = 1000.00;
+          updateBalance();
+        }
+        
+        const historyBody = document.getElementById("tradeHistory");
+        if (historyBody) {
+          historyBody.innerHTML = 
+            '<tr><td colspan="8" class="p-6 md:p-8 text-center text-gray-500">No trades yet - Start trading!</td></tr>';
+        }
+        
+        updatePnL();
+        updateWinRate();
+        updateCurrentStakeDisplay();
+        
+        showToast("Session reset!", "success");
+      }
+
+      function exportHistory() {
+        if (tradeHistory.length === 0) {
+          showToast("No trade history to export", "warning");
+          return;
+        }
+        
+        const csv = [
+          ["Time", "Market", "Type", "Strategy", "Direction", "Stake", "Result", "PnL"],
+          ...tradeHistory.map(t => [
+            t.time,
+            t.market,
+            t.type,
+            t.strategy,
+            t.direction,
+            t.stake.toFixed(2),
+            t.result,
+            t.pnl.toFixed(2)
+          ])
+        ].map(row => row.join(",")).join("\n");
+        
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `pro_trader_${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showToast("History exported!", "success");
+      }
+
+      function executeSingleTrade() {
+        if (!isConnected) {
+          showToast("Starting DEMO mode for single trade...", "info");
+          simulateWebSocketConnection();
+        }
+        
+        if (prices.length < 20) {
+          showToast("Need more market data. Collecting...", "warning");
+          // Add some demo data
+          for (let i = 0; i < 30; i++) {
+            prices.push(10000 + Math.random() * 100);
+          }
+          if (prices.length > 200) prices.splice(0, prices.length - 200);
+        }
+        
+        if (isProcessing) {
+          showToast("Trade in progress", "warning");
+          return;
+        }
+        
+        // Force analysis and immediate trade
+        analyzeMarket();
+      }
+
+      // =====================
+      // INITIALIZATION
+      // =====================
+      function init() {
+        // Initialize UI
+        updateBalance();
+        updatePnL();
+        updateWinRate();
+        updateCurrentStakeDisplay();
+        
+        // Set default values
+        selectMarket("R_100");
+        selectTradeType("risefall");
+        selectStrategy("emaCrossover");
+        
+        // Initialize indicators display
+        updateIndicatorDisplay("indicatorRSI", null);
+        updateIndicatorDisplay("indicatorSMA20", null);
+        updateIndicatorDisplay("indicatorEMA9", null);
+        updateIndicatorDisplay("indicatorATR", null);
+        
+        // Set indicator signal texts
+        const signalElements = ["rsiSignalText", "emaSignalText", "smaSignalText", "atrSignalText"];
+        signalElements.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = "-";
+        });
+        
+        // Start with demo mode
+        showToast("Deriv Pro Trader V6 Ready! DEMO mode active.", "success");
+        showToast("Click START to begin auto-trading or SINGLE for manual trades", "info");
+        
+        // Start collecting initial data for demo
+        setTimeout(() => {
+          if (prices.length < 20) {
+            // Generate initial demo data
+            let basePrice = 10000;
+            for (let i = 0; i < 50; i++) {
+              basePrice += (Math.random() - 0.5) * 10;
+              prices.push(basePrice);
+            }
+            showToast("Demo data loaded. Ready for trading!", "success");
+          }
+        }, 1000);
+      }
+
+      // Start the application
+      window.addEventListener('DOMContentLoaded', init);
+    </script>
+  </body>
+</html>

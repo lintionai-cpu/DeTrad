@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deriv Auto Trader V5 - Advanced Strategies</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-connected { color: #10b981; }
+        .status-disconnected { color: #ef4444; }
+        .profit { color: #10b981; }
+        .loss { color: #ef4444; }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
+        }
+        .toast {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            gap: 12px;
+            border-left: 4px solid;
+        }
+        .toast.success { border-left-color: #10b981; }
+        .toast.error { border-left-color: #ef4444; }
+        .toast.warning { border-left-color: #f59e0b; }
+        .toast.info { border-left-color: #3b82f6; }
+        @keyframes slideIn {
+            from { transform: translateX(450px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+        .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:not(:disabled):hover { transform: translateY(-2px); }
+        .strategy-btn {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .strategy-btn.active {
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            border-color: #60a5fa;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+        }
+        @media (max-width: 768px) {
+            .toast-container { right: 10px; left: 10px; max-width: none; }
+        }
+        .reconnecting {
+            animation: pulse 1s ease-in-out infinite;
+            color: #f59e0b;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen p-4">
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold" style="background: linear-gradient(135deg, #60a5fa, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    🤖 Deriv Auto Trader V5
+                </h1>
+                <div class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700">
+                    <span id="connectionDot" class="w-3 h-3 rounded-full bg-red-500"></span>
+                    <span id="connectionStatus" class="text-base status-disconnected font-semibold">Disconnected</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl shadow-lg">
+                    <p class="text-xs text-blue-200">Balance</p>
+                    <p id="balance" class="text-2xl font-bold">$0.00</p>
+                </div>
+                <div class="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl shadow-lg">
+                    <p class="text-xs text-purple-200">Session PnL</p>
+                    <p id="totalPnl" class="text-2xl font-bold">$0.00</p>
+                </div>
+                <div class="bg-gradient-to-br from-green-600 to-green-800 p-4 rounded-xl shadow-lg">
+                    <p class="text-xs text-green-200">Win Rate</p>
+                    <p id="winRate" class="text-2xl font-bold">0%</p>
+                </div>
+                <div class="bg-gradient-to-br from-orange-600 to-orange-800 p-4 rounded-xl shadow-lg">
+                    <p class="text-xs text-orange-200">Trades</p>
+                    <p id="totalTrades" class="text-2xl font-bold">0</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+                    <p class="text-xs text-gray-400">Current Stake</p>
+                    <p id="currentStakeDisplay" class="text-lg font-bold text-blue-400">$0.00</p>
+                </div>
+                <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+                    <p class="text-xs text-gray-400">M-Step</p>
+                    <p id="martingaleStepDisplay" class="text-lg font-bold text-yellow-400">0</p>
+                </div>
+                <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+                    <p class="text-xs text-gray-400">Consecutive Losses</p>
+                    <p id="consecutiveLossesDisplay" class="text-lg font-bold text-red-400">0</p>
+                </div>
+                <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+                    <p class="text-xs text-gray-400">Trades Remaining</p>
+                    <p id="tradesRemaining" class="text-lg font-bold text-purple-400">∞</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Connection -->
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700">
+            <h2 class="text-xl font-bold mb-3">🔐 API Connection</h2>
+            <div class="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-3 mb-4 text-sm">
+                <p class="font-semibold">⚠️ Use demo accounts for testing. Persistent WebSocket with auto-reconnect enabled.</p>
+            </div>
+            <div class="flex gap-2">
+                <input type="password" id="apiToken" placeholder="Enter Deriv API Token" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white">
+                <button onclick="connectAPI()" id="connectBtn" class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 rounded-lg font-semibold">
+                    🔌 Connect
+                </button>
+                <button onclick="disconnectAPI()" class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 rounded-lg font-semibold">
+                    🔌 Disconnect
+                </button>
+            </div>
+        </div>
+
+        <!-- Market & Risk -->
+        <div class="grid lg:grid-cols-2 gap-4 mb-4">
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">📊 Market Settings</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm mb-2">Market</label>
+                        <select id="market" onchange="updateMarket()" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+                            <option value="R_10">Volatility 10 Index</option>
+                            <option value="R_25">Volatility 25 Index</option>
+                            <option value="R_50">Volatility 50 Index</option>
+                            <option value="R_75">Volatility 75 Index</option>
+                            <option value="R_100">Volatility 100 Index</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">Contract Duration (Ticks)</label>
+                        <input type="number" id="duration" min="1" max="10" value="3" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+                    </div>
+                    <div class="bg-blue-900 bg-opacity-30 p-3 rounded-lg">
+                        <p class="text-xs">Last Digit: <span id="lastDigit" class="text-xl font-bold text-blue-400">-</span></p>
+                        <p class="text-xs mt-1">Tick Count: <span id="tickCount" class="font-bold">0</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">⚠️ Risk Management</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm mb-2">Initial Stake ($)</label>
+                        <input type="number" id="initialStake" min="0.35" step="0.01" value="1" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">Max Loss ($)</label>
+                        <input type="number" id="maxLoss" min="1" value="50" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">Max Profit ($)</label>
+                        <input type="number" id="maxProfit" min="1" value="100" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">Max Trades (0=∞)</label>
+                        <input type="number" id="maxTrades" min="0" value="0" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+                    </div>
+                    <div class="bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-lg">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" id="enableMartingale" checked class="w-5 h-5">
+                            <span class="font-semibold">Enable Martingale</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">Max Martingale Steps</label>
+                        <input type="number" id="maxMartingaleSteps" min="1" max="10" value="5" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Strategies -->
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700">
+            <h2 class="text-xl font-bold mb-4">🎯 Trading Strategies</h2>
+            
+            <!-- Strategy Category Buttons -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <button onclick="selectStrategyCategory('over2under7')" id="catBtn-over2under7" class="strategy-btn active p-4 rounded-xl">
+                    <p class="font-bold">📊 Over 2 / Under 7</p>
+                    <p class="text-xs">70% Probability</p>
+                </button>
+                <button onclick="selectStrategyCategory('under5over5')" id="catBtn-under5over5" class="strategy-btn bg-gray-700 p-4 rounded-xl">
+                    <p class="font-bold">⚖️ Under 5 / Over 5</p>
+                    <p class="text-xs">50% Each</p>
+                </button>
+                <button onclick="selectStrategyCategory('over1under8')" id="catBtn-over1under8" class="strategy-btn bg-gray-700 p-4 rounded-xl">
+                    <p class="font-bold">🎯 Over 1 / Under 8</p>
+                    <p class="text-xs">80% Probability</p>
+                </button>
+                <button onclick="selectStrategyCategory('under3over5')" id="catBtn-under3over5" class="strategy-btn bg-gray-700 p-4 rounded-xl">
+                    <p class="font-bold">🔀 Under 3 / Over 5</p>
+                    <p class="text-xs">Asymmetric</p>
+                </button>
+            </div>
+
+            <!-- OVER 2 / UNDER 7 Strategies -->
+            <div id="over2under7Strategies" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+                    <button onclick="selectStrategy('dualThreshold')" id="stratBtn-dualThreshold" class="strategy-btn active p-3 rounded-lg text-sm">
+                        Dual Threshold
+                    </button>
+                    <button onclick="selectStrategy('extremeExclusion')" id="stratBtn-extremeExclusion" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Extreme Exclusion
+                    </button>
+                    <button onclick="selectStrategy('gapAnalysis')" id="stratBtn-gapAnalysis" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Gap Analysis
+                    </button>
+                    <button onclick="selectStrategy('fibonacciDigit')" id="stratBtn-fibonacciDigit" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Fibonacci Digit
+                    </button>
+                    <button onclick="selectStrategy('clusterDensity')" id="stratBtn-clusterDensity" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Cluster Density
+                    </button>
+                </div>
+
+                <!-- Strategy Settings -->
+                <div id="dualThresholdSettings" class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-bold mb-3">Dual Threshold Momentum Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Analysis Window (ticks)</label>
+                            <input type="number" id="dt_window" min="10" max="50" value="20" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Threshold (%)</label>
+                            <input type="number" id="dt_threshold" min="5" max="30" value="15" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                    <p class="text-xs mt-2 text-gray-400">Hedged trade when extreme digits &lt;15% in last 20 ticks</p>
+                </div>
+
+                <div id="extremeExclusionSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Extreme Digit Exclusion Settings</h3>
+                    <div>
+                        <label class="block text-sm mb-2">Consecutive Digit Threshold</label>
+                        <input type="number" id="ee_consecutive" min="2" max="5" value="3" class="w-full bg-gray-600 rounded px-3 py-2">
+                    </div>
+                    <p class="text-xs mt-2 text-gray-400">Enter trade after X consecutive appearances of 0-2 or 7-9</p>
+                </div>
+
+                <div id="gapAnalysisSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Gap Analysis System Settings</h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="ga_window" min="5" max="20" value="10" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Low Gap (&lt;)</label>
+                            <input type="number" id="ga_lowGap" min="1" max="3" step="0.1" value="2.5" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">High Gap (&gt;)</label>
+                            <input type="number" id="ga_highGap" min="3" max="5" step="0.1" value="3.5" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="fibonacciDigitSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Fibonacci Digit Sequence Settings</h3>
+                    <div>
+                        <label class="block text-sm mb-2">Sequence Length</label>
+                        <input type="number" id="fd_seqLength" min="3" max="5" value="3" class="w-full bg-gray-600 rounded px-3 py-2">
+                    </div>
+                    <p class="text-xs mt-2 text-gray-400">Detects Fibonacci-like patterns in digit sequences</p>
+                </div>
+
+                <div id="clusterDensitySettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Cluster Density Strategy Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Analysis Window</label>
+                            <input type="number" id="cd_window" min="10" max="30" value="15" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Density Threshold (%)</label>
+                            <input type="number" id="cd_threshold" min="40" max="70" value="50" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- UNDER 5 / OVER 5 Strategies -->
+            <div id="under5over5Strategies" class="space-y-4 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+                    <button onclick="selectStrategy('binaryFlip')" id="stratBtn-binaryFlip" class="strategy-btn active p-3 rounded-lg text-sm">
+                        Binary Flip
+                    </button>
+                    <button onclick="selectStrategy('primeBias')" id="stratBtn-primeBias" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Prime Digit Bias
+                    </button>
+                    <button onclick="selectStrategy('oddEvenCorr')" id="stratBtn-oddEvenCorr" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Odd/Even Correlation
+                    </button>
+                    <button onclick="selectStrategy('midpointReject')" id="stratBtn-midpointReject" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Midpoint Rejection
+                    </button>
+                    <button onclick="selectStrategy('volAdjusted')" id="stratBtn-volAdjusted" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Volatility Adjusted
+                    </button>
+                </div>
+
+                <div id="binaryFlipSettings" class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-bold mb-3">Binary Flip Detection Settings</h3>
+                    <div>
+                        <label class="block text-sm mb-2">Consecutive Zone Threshold</label>
+                        <input type="number" id="bf_consecutive" min="3" max="6" value="4" class="w-full bg-gray-600 rounded px-3 py-2">
+                    </div>
+                </div>
+
+                <div id="primeBiasSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Prime Digit Bias Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Analysis Window</label>
+                            <input type="number" id="pb_window" min="15" max="30" value="20" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Prime Threshold (%)</label>
+                            <input type="number" id="pb_threshold" min="20" max="50" value="40" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="oddEvenCorrSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Odd/Even Correlation Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="oe_window" min="10" max="20" value="15" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Dominance Threshold (%)</label>
+                            <input type="number" id="oe_threshold" min="50" max="70" value="60" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="midpointRejectSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Midpoint Rejection Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="mr_window" min="5" max="15" value="10" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Digit 5 Threshold</label>
+                            <input type="number" id="mr_threshold" min="2" max="5" value="3" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="volAdjustedSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Volatility-Adjusted Spread Settings</h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="va_window" min="15" max="30" value="20" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">High Vol (&gt;)</label>
+                            <input type="number" id="va_highVol" min="2.5" max="4" step="0.1" value="3.0" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Low Vol (&lt;)</label>
+                            <input type="number" id="va_lowVol" min="1" max="2.5" step="0.1" value="2.0" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OVER 1 / UNDER 8 Strategies -->
+            <div id="over1under8Strategies" class="space-y-4 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+                    <button onclick="selectStrategy('extremeExclusionPlay')" id="stratBtn-extremeExclusionPlay" class="strategy-btn active p-3 rounded-lg text-sm">
+                        Extreme Exclusion
+                    </button>
+                    <button onclick="selectStrategy('gapThreshold')" id="stratBtn-gapThreshold" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Gap Threshold
+                    </button>
+                    <button onclick="selectStrategy('sequentialChain')" id="stratBtn-sequentialChain" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Sequential Chain
+                    </button>
+                    <button onclick="selectStrategy('boundaryReinforce')" id="stratBtn-boundaryReinforce" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Boundary Reinforce
+                    </button>
+                    <button onclick="selectStrategy('complementaryPair')" id="stratBtn-complementaryPair" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Complementary Pair
+                    </button>
+                </div>
+
+                <div id="extremeExclusionPlaySettings" class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-bold mb-3">Extreme Exclusion Play Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="eep_window" min="10" max="20" value="15" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Appearance Threshold</label>
+                            <input type="number" id="eep_threshold" min="2" max="5" value="3" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="gapThresholdSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Gap Threshold Strategy Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="gt_window" min="5" max="15" value="10" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Max Gap Threshold</label>
+                            <input type="number" id="gt_maxGap" min="5" max="9" value="7" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sequentialChainSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Sequential Chain Analysis Settings</h3>
+                    <div>
+                        <label class="block text-sm mb-2">Chain Length Threshold</label>
+                        <input type="number" id="sc_chainLength" min="3" max="6" value="4" class="w-full bg-gray-600 rounded px-3 py-2">
+                    </div>
+                </div>
+
+                <div id="boundaryReinforceSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Boundary Reinforcement Settings</h3>
+                    <div>
+                        <label class="block text-sm mb-2">Test Count Threshold</label>
+                        <input type="number" id="br_testCount" min="2" max="4" value="2" class="w-full bg-gray-600 rounded px-3 py-2">
+                    </div>
+                </div>
+
+                <div id="complementaryPairSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Complementary Pair Trading Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="cp_window" min="15" max="30" value="20" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Safe Zone Threshold (%)</label>
+                            <input type="number" id="cp_threshold" min="75" max="95" value="85" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- UNDER 3 / OVER 5 Strategies -->
+            <div id="under3over5Strategies" class="space-y-4 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+                    <button onclick="selectStrategy('polarizedDist')" id="stratBtn-polarizedDist" class="strategy-btn active p-3 rounded-lg text-sm">
+                        Polarized Distribution
+                    </button>
+                    <button onclick="selectStrategy('digitGapAsym')" id="stratBtn-digitGapAsym" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Digit Gap Asymmetry
+                    </button>
+                    <button onclick="selectStrategy('lowHighAlt')" id="stratBtn-lowHighAlt" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Low-High Alternation
+                    </button>
+                    <button onclick="selectStrategy('fibRetrace')" id="stratBtn-fibRetrace" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Fib Retracement
+                    </button>
+                    <button onclick="selectStrategy('dualTimeframe')" id="stratBtn-dualTimeframe" class="strategy-btn bg-gray-700 p-3 rounded-lg text-sm">
+                        Dual Timeframe
+                    </button>
+                </div>
+
+                <div id="polarizedDistSettings" class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-bold mb-3">Polarized Digit Distribution Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Window Size</label>
+                            <input type="number" id="pd_window" min="10" max="20" value="15" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Middle Digit Threshold (%)</label>
+                            <input type="number" id="pd_threshold" min="10" max="30" value="20" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="digitGapAsymSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Digit Gap Asymmetry Settings</h3>
+                    <div>
+                        <label class="block text-sm mb-2">Reference Digit</label>
+                        <input type="number" id="dga_refDigit" min="0" max="9" value="5" class="w-full bg-gray-600 rounded px-3 py-2" readonly>
+                    </div>
+                </div>
+
+                <div id="lowHighAltSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Low-High Alternation Settings</h3>
+                    <div>
+                        <label class="block text-sm mb-2">Consecutive Threshold</label>
+                        <input type="number" id="lha_consecutive" min="2" max="4" value="2" class="w-full bg-gray-600 rounded px-3 py-2">
+                    </div>
+                </div>
+
+                <div id="fibRetraceSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Fibonacci Retracement Digits Settings</h3>
+                    <p class="text-xs text-gray-400 mb-2">Maps digits to Fibonacci levels for support/resistance</p>
+                </div>
+
+                <div id="dualTimeframeSettings" class="bg-gray-700 p-4 rounded-lg hidden">
+                    <h3 class="font-bold mb-3">Dual Timeframe Confirmation Settings</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-2">Short Window</label>
+                            <input type="number" id="dtf_shortWindow" min="5" max="15" value="10" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">Long Window</label>
+                            <input type="number" id="dtf_longWindow" min="20" max="40" value="30" class="w-full bg-gray-600 rounded px-3 py-2">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700">
+            <h2 class="text-xl font-bold mb-4">🎮 Trading Controls</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button onclick="startAutoTrading()" id="startBtn" class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-xl font-bold">
+                    🚀 Start Auto Trading
+                </button>
+                <button onclick="stopAutoTrading()" id="stopBtn" disabled class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-xl font-bold">
+                    ⛔ Stop Trading
+                </button>
+                <button onclick="executeSingleTrade()" id="singleTradeBtn" class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-xl font-bold">
+                    ⚡ Single Trade
+                </button>
+                <button onclick="resetSession()" class="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4 rounded-xl font-bold">
+                    🔄 Reset Session
+                </button>
+            </div>
+        </div>
+
+        <!-- Trade History -->
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">📜 Trade History</h2>
+                <button onclick="exportHistory()" class="bg-purple-600 px-4 py-2 rounded-lg font-semibold">
+                    📥 Export CSV
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-700">
+                        <tr>
+                            <th class="p-3 text-left">Time</th>
+                            <th class="p-3 text-left">Strategy</th>
+                            <th class="p-3 text-left">Type</th>
+                            <th class="p-3 text-left">Market</th>
+                            <th class="p-3 text-left">Target</th>
+                            <th class="p-3 text-left">Stake</th>
+                            <th class="p-3 text-left">Result</th>
+                            <th class="p-3 text-left">PnL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tradeHistory" class="divide-y divide-gray-700">
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-gray-500">No trades yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== STATE MANAGEMENT ====================
+        let ws, reconnectInterval, pingInterval;
+        let isConnected = false, isTrading = false, isProcessing = false;
+        let balance = 0, totalPnl = 0, currentStake = 0;
+        let martingaleStep = 0, consecutiveLosses = 0;
+        let tradeHistory = [], tickHistory = [], lastDigits = [];
+        let totalTrades = 0, wins = 0, losses = 0;
+        let tradingInterval = null;
+        let currentStrategyCategory = 'over2under7';
+        let currentStrategy = 'dualThreshold';
+        let apiToken = '';
+        let accountCurrency = 'USD';
+        let pendingProposals = new Map();
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 10;
+
+        // ==================== NOTIFICATION SYSTEM ====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            toast.innerHTML = `
+                <div class="text-2xl">${icons[type]}</div>
+                <div>
+                    <p class="font-bold text-sm uppercase">${type}</p>
+                    <p class="text-sm text-gray-300">${message}</p>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // ==================== CONNECTION MANAGEMENT ====================
+        function updateConnectionStatus(connected, reconnecting = false) {
+            isConnected = connected;
+            const statusEl = document.getElementById('connectionStatus');
+            const dotEl = document.getElementById('connectionDot');
+            
+            if (reconnecting) {
+                statusEl.textContent = 'Reconnecting...';
+                statusEl.className = 'text-base font-semibold reconnecting';
+                dotEl.className = 'w-3 h-3 rounded-full bg-yellow-500 pulse';
+            } else if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'text-base font-semibold status-connected';
+                dotEl.className = 'w-3 h-3 rounded-full bg-green-500 glow';
+                reconnectAttempts = 0;
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'text-base font-semibold status-disconnected';
+                dotEl.className = 'w-3 h-3 rounded-full bg-red-500';
+            }
+        }
+
+        function connectAPI() {
+            apiToken = document.getElementById('apiToken').value.trim();
+            
+            if (!apiToken) {
+                showToast('Please enter your API token', 'error');
+                return;
+            }
+            
+            showToast('Connecting to Deriv API...', 'info');
+            establishConnection();
+        }
+
+        function establishConnection() {
+            try {
+                ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+                
+                ws.onopen = () => {
+                    console.log('WebSocket opened');
+                    ws.send(JSON.stringify({ authorize: apiToken }));
+                    startPingPong();
+                };
+                
+                ws.onmessage = (msg) => {
+                    try {
+                        const data = JSON.parse(msg.data);
+                        handleWSMessage(data);
+                    } catch (e) {
+                        console.error('Message parse error:', e);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showToast('Connection error occurred', 'error');
+                };
+                
+                ws.onclose = (event) => {
+                    console.log('WebSocket closed:', event.code, event.reason);
+                    updateConnectionStatus(false);
+                    stopPingPong();
+                    
+                    if (isTrading) {
+                        stopAutoTrading();
+                        showToast('Connection lost - Trading stopped', 'warning');
+                    }
+                    
+                    // Auto-reconnect if not manually disconnected
+                    if (event.code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                        attemptReconnect();
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                showToast('Failed to establish connection', 'error');
+            }
+        }
+
+        function attemptReconnect() {
+            reconnectAttempts++;
+            updateConnectionStatus(false, true);
+            showToast(`Reconnecting (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`, 'warning');
+            
+            reconnectInterval = setTimeout(() => {
+                if (apiToken) {
+                    establishConnection();
+                }
+            }, Math.min(1000 * reconnectAttempts, 10000)); // Exponential backoff, max 10s
+        }
+
+        function startPingPong() {
+            pingInterval = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ ping: 1 }));
+                }
+            }, 30000); // Ping every 30 seconds
+        }
+
+        function stopPingPong() {
+            if (pingInterval) {
+                clearInterval(pingInterval);
+                pingInterval = null;
+            }
+        }
+
+        function disconnectAPI() {
+            if (reconnectInterval) {
+                clearTimeout(reconnectInterval);
+                reconnectInterval = null;
+            }
+            
+            stopPingPong();
+            
+            if (ws) {
+                ws.close(1000, 'User disconnected'); // Normal closure
+                ws = null;
+            }
+            
+            stopAutoTrading();
+            updateConnectionStatus(false);
+            showToast('Disconnected from Deriv', 'info');
+            reconnectAttempts = 0;
+        }
+
+        // ==================== WEBSOCKET MESSAGE HANDLER ====================
+        function handleWSMessage(data) {
+            // Handle pong
+            if (data.msg_type === 'ping') {
+                return; // Pong handled automatically
+            }
+            
+            // Handle errors
+            if (data.error) {
+                console.error('API Error:', data.error);
+                showToast(`API Error: ${data.error.message}`, 'error');
+                
+                // Remove pending proposal if it failed
+                if (data.echo_req && data.echo_req.proposal) {
+                    pendingProposals.clear();
+                    isProcessing = false;
+                    document.getElementById('singleTradeBtn').disabled = false;
+                }
+                return;
+            }
+            
+            // Handle authorization
+            if (data.msg_type === 'authorize') {
+                if (data.authorize) {
+                    isConnected = true;
+                    balance = parseFloat(data.authorize.balance);
+                    accountCurrency = data.authorize.currency;
+                    updateConnectionStatus(true);
+                    updateBalance();
+                    subscribeToTicks();
+                    showToast(`Connected! Balance: ${accountCurrency} ${balance.toFixed(2)}`, 'success');
+                }
+            }
+            
+            // Handle tick data
+            else if (data.msg_type === 'tick') {
+                handleTick(data.tick);
+            }
+            
+            // Handle proposal response
+            else if (data.msg_type === 'proposal') {
+                handleProposalResponse(data);
+            }
+            
+            // Handle buy response
+            else if (data.msg_type === 'buy') {
+                handleBuyResponse(data);
+            }
+            
+            // Handle contract updates
+            else if (data.msg_type === 'proposal_open_contract') {
+                handleContractUpdate(data);
+            }
+            
+            // Handle balance updates
+            else if (data.msg_type === 'balance') {
+                balance = parseFloat(data.balance.balance);
+                updateBalance();
+                showToast(`Balance updated: ${accountCurrency} ${balance.toFixed(2)}`, 'info');
+            }
+        }
+
+        // ==================== TICK HANDLING ====================
+        function subscribeToTicks() {
+            if (!ws || !isConnected) return;
+            
+            const market = document.getElementById('market').value;
+            ws.send(JSON.stringify({
+                ticks: market,
+                subscribe: 1
+            }));
+            
+            showToast(`Subscribed to ${market} ticks`, 'info');
+        }
+
+        function updateMarket() {
+            if (isConnected) {
+                subscribeToTicks();
+                lastDigits = [];
+                tickHistory = [];
+                showToast('Market changed - History cleared', 'info');
+            }
+        }
+
+        function handleTick(tick) {
+            const digit = parseInt(tick.quote.toString().slice(-1));
+            lastDigits.push(digit);
+            
+            if (lastDigits.length > 200) {
+                lastDigits.shift();
+            }
+            
+            tickHistory.push(tick);
+            if (tickHistory.length > 200) {
+                tickHistory.shift();
+            }
+            
+            // Update UI
+            document.getElementById('lastDigit').textContent = digit;
+            document.getElementById('tickCount').textContent = lastDigits.length;
+        }
+
+        // ==================== DISPLAY UPDATES ====================
+        function updateBalance() {
+            document.getElementById('balance').textContent = `${accountCurrency} ${balance.toFixed(2)}`;
+        }
+
+        function updatePnL() {
+            const el = document.getElementById('totalPnl');
+            el.textContent = `${accountCurrency} ${totalPnl.toFixed(2)}`;
+            el.className = `text-2xl font-bold ${totalPnl >= 0 ? 'profit' : 'loss'}`;
+        }
+
+        function updateWinRate() {
+            const rate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+            document.getElementById('winRate').textContent = `${rate}%`;
+            document.getElementById('totalTrades').textContent = totalTrades;
+            
+            const maxTrades = parseInt(document.getElementById('maxTrades').value);
+            document.getElementById('tradesRemaining').textContent = 
+                maxTrades > 0 ? Math.max(0, maxTrades - totalTrades) : '∞';
+        }
+
+        function updateCurrentStakeDisplay() {
+            document.getElementById('currentStakeDisplay').textContent = `${accountCurrency} ${currentStake.toFixed(2)}`;
+            document.getElementById('martingaleStepDisplay').textContent = martingaleStep;
+            document.getElementById('consecutiveLossesDisplay').textContent = consecutiveLosses;
+        }
+
+        // ==================== STRATEGY SELECTION ====================
+        function selectStrategyCategory(category) {
+            currentStrategyCategory = category;
+            
+            // Update category buttons
+            ['over2under7', 'under5over5', 'over1under8', 'under3over5'].forEach(cat => {
+                const btn = document.getElementById(`catBtn-${cat}`);
+                btn.className = cat === category ? 
+                    'strategy-btn active p-4 rounded-xl' : 
+                    'strategy-btn bg-gray-700 p-4 rounded-xl';
+            });
+            
+            // Show/hide strategy containers
+            document.getElementById('over2under7Strategies').classList.toggle('hidden', category !== 'over2under7');
+            document.getElementById('under5over5Strategies').classList.toggle('hidden', category !== 'under5over5');
+            document.getElementById('over1under8Strategies').classList.toggle('hidden', category !== 'over1under8');
+            document.getElementById('under3over5Strategies').classList.toggle('hidden', category !== 'under3over5');
+            
+            // Select first strategy in category
+            const firstStrategies = {
+                'over2under7': 'dualThreshold',
+                'under5over5': 'binaryFlip',
+                'over1under8': 'extremeExclusionPlay',
+                'under3over5': 'polarizedDist'
+            };
+            
+            selectStrategy(firstStrategies[category]);
+            showToast(`Strategy category: ${category}`, 'info');
+        }
+
+        function selectStrategy(strategy) {
+            currentStrategy = strategy;
+            
+            // Get all strategy buttons in current category
+            const container = document.getElementById(`${currentStrategyCategory}Strategies`);
+            const buttons = container.querySelectorAll('[id^="stratBtn-"]');
+            
+            buttons.forEach(btn => {
+                const stratName = btn.id.replace('stratBtn-', '');
+                btn.className = stratName === strategy ?
+                    'strategy-btn active p-3 rounded-lg text-sm' :
+                    'strategy-btn bg-gray-700 p-3 rounded-lg text-sm';
+            });
+            
+            // Show/hide settings
+            const settingsDivs = container.querySelectorAll('[id$="Settings"]');
+            settingsDivs.forEach(div => {
+                const stratName = div.id.replace('Settings', '');
+                div.classList.toggle('hidden', stratName !== strategy);
+            });
+            
+            showToast(`Strategy selected: ${strategy}`, 'info');
+        }
+
+        // ==================== STRATEGY LOGIC ====================
+        function analyzeStrategy() {
+            if (lastDigits.length < 20) {
+                showToast('Insufficient tick data for analysis', 'warning');
+                return null;
+            }
+            
+            switch(currentStrategy) {
+                // OVER 2 / UNDER 7 Strategies
+                case 'dualThreshold':
+                    return analyzeDualThreshold();
+                case 'extremeExclusion':
+                    return analyzeExtremeExclusion();
+                case 'gapAnalysis':
+                    return analyzeGapAnalysis();
+                case 'fibonacciDigit':
+                    return analyzeFibonacciDigit();
+                case 'clusterDensity':
+                    return analyzeClusterDensity();
+                
+                // UNDER 5 / OVER 5 Strategies
+                case 'binaryFlip':
+                    return analyzeBinaryFlip();
+                case 'primeBias':
+                    return analyzePrimeBias();
+                case 'oddEvenCorr':
+                    return analyzeOddEvenCorr();
+                case 'midpointReject':
+                    return analyzeMidpointReject();
+                case 'volAdjusted':
+                    return analyzeVolAdjusted();
+                
+                // OVER 1 / UNDER 8 Strategies
+                case 'extremeExclusionPlay':
+                    return analyzeExtremeExclusionPlay();
+                case 'gapThreshold':
+                    return analyzeGapThreshold();
+                case 'sequentialChain':
+                    return analyzeSequentialChain();
+                case 'boundaryReinforce':
+                    return analyzeBoundaryReinforce();
+                case 'complementaryPair':
+                    return analyzeComplementaryPair();
+                
+                // UNDER 3 / OVER 5 Strategies
+                case 'polarizedDist':
+                    return analyzePolarizedDist();
+                case 'digitGapAsym':
+                    return analyzeDigitGapAsym();
+                case 'lowHighAlt':
+                    return analyzeLowHighAlt();
+                case 'fibRetrace':
+                    return analyzeFibRetrace();
+                case 'dualTimeframe':
+                    return analyzeDualTimeframe();
+                
+                default:
+                    return null;
+            }
+        }
+
+        // ========== OVER 2 / UNDER 7 STRATEGY IMPLEMENTATIONS ==========
+        function analyzeDualThreshold() {
+            const window = parseInt(document.getElementById('dt_window').value);
+            const threshold = parseInt(document.getElementById('dt_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const lowDigits = recent.filter(d => d >= 0 && d <= 2).length;
+            const highDigits = recent.filter(d => d >= 7 && d <= 9).length;
+            
+            const lowPercent = (lowDigits / window) * 100;
+            const highPercent = (highDigits / window) * 100;
+            
+            if (lowPercent < threshold && highPercent < threshold) {
+                // Hedged trade - both Over 2 and Under 7
+                return {
+                    type: 'DIGITOVER',
+                    barrier: '2',
+                    hedged: true,
+                    hedgeType: 'DIGITUNDER',
+                    hedgeBarrier: '7'
+                };
+            }
+            return null;
+        }
+
+        function analyzeExtremeExclusion() {
+            const consecutive = parseInt(document.getElementById('ee_consecutive').value);
+            const recent = lastDigits.slice(-consecutive);
+            
+            const allLow = recent.every(d => d >= 0 && d <= 2);
+            const allHigh = recent.every(d => d >= 7 && d <= 9);
+            
+            if (allLow) {
+                return { type: 'DIGITOVER', barrier: '2' };
+            } else if (allHigh) {
+                return { type: 'DIGITUNDER', barrier: '7' };
+            }
+            return null;
+        }
+
+        function analyzeGapAnalysis() {
+            const window = parseInt(document.getElementById('ga_window').value);
+            const lowGap = parseFloat(document.getElementById('ga_lowGap').value);
+            const highGap = parseFloat(document.getElementById('ga_highGap').value);
+            const recent = lastDigits.slice(-window);
+            
+            let totalGap = 0;
+            for (let i = 1; i < recent.length; i++) {
+                totalGap += Math.abs(recent[i] - recent[i-1]);
+            }
+            const avgGap = totalGap / (recent.length - 1);
+            
+            if (avgGap < lowGap) {
+                return { type: 'DIGITUNDER', barrier: '7' };
+            } else if (avgGap > highGap) {
+                return { type: 'DIGITOVER', barrier: '2' };
+            }
+            return null;
+        }
+
+        function analyzeFibonacciDigit() {
+            const seqLength = parseInt(document.getElementById('fd_seqLength').value);
+            const recent = lastDigits.slice(-seqLength);
+            
+            // Check for ascending sequence
+            let ascending = true;
+            let descending = true;
+            
+            for (let i = 1; i < recent.length; i++) {
+                if (recent[i] <= recent[i-1]) ascending = false;
+                if (recent[i] >= recent[i-1]) descending = false;
+            }
+            
+            if (ascending) {
+                return { type: 'DIGITOVER', barrier: '2' };
+            } else if (descending) {
+                return { type: 'DIGITUNDER', barrier: '7' };
+            }
+            return null;
+        }
+
+        function analyzeClusterDensity() {
+            const window = parseInt(document.getElementById('cd_window').value);
+            const threshold = parseInt(document.getElementById('cd_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const middleDigits = recent.filter(d => d >= 3 && d <= 6).length;
+            const middlePercent = (middleDigits / window) * 100;
+            
+            if (middlePercent > threshold) {
+                // Staggered entry - return first trade
+                return {
+                    type: 'DIGITOVER',
+                    barrier: '2',
+                    staggered: true
+                };
+            }
+            return null;
+        }
+
+        // ========== UNDER 5 / OVER 5 STRATEGY IMPLEMENTATIONS ==========
+        function analyzeBinaryFlip() {
+            const consecutive = parseInt(document.getElementById('bf_consecutive').value);
+            const recent = lastDigits.slice(-consecutive);
+            
+            const allUnder5 = recent.every(d => d < 5);
+            const allOver5 = recent.every(d => d >= 5);
+            
+            if (allUnder5) {
+                return { type: 'DIGITOVER', barrier: '4' }; // Bet on flip to over 5
+            } else if (allOver5) {
+                return { type: 'DIGITUNDER', barrier: '5' }; // Bet on flip to under 5
+            }
+            return null;
+        }
+
+        function analyzePrimeBias() {
+            const window = parseInt(document.getElementById('pb_window').value);
+            const threshold = parseInt(document.getElementById('pb_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const primes = [2, 3, 5, 7];
+            const primeCount = recent.filter(d => primes.includes(d)).length;
+            const primePercent = (primeCount / window) * 100;
+            
+            if (primePercent > threshold) {
+                return { type: 'DIGITUNDER', barrier: '5' }; // Covers 2, 3
+            } else if (primePercent < (100 - threshold)) {
+                return { type: 'DIGITOVER', barrier: '4' }; // Covers 7
+            }
+            return null;
+        }
+
+        function analyzeOddEvenCorr() {
+            const window = parseInt(document.getElementById('oe_window').value);
+            const threshold = parseInt(document.getElementById('oe_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const oddCount = recent.filter(d => d % 2 === 1).length;
+            const oddPercent = (oddCount / window) * 100;
+            
+            if (oddPercent > threshold) {
+                return { type: 'DIGITOVER', barrier: '4' }; // Over 5 has more odds
+            } else if (oddPercent < (100 - threshold)) {
+                return { type: 'DIGITUNDER', barrier: '5' }; // Under 5 when evens dominate
+            }
+            return null;
+        }
+
+        function analyzeMidpointReject() {
+            const window = parseInt(document.getElementById('mr_window').value);
+            const threshold = parseInt(document.getElementById('mr_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const digit5Count = recent.filter(d => d === 5).length;
+            
+            if (digit5Count >= threshold) {
+                // Next tick won't be 5 - enter both sides
+                return {
+                    type: 'DIGITUNDER',
+                    barrier: '5',
+                    hedged: true,
+                    hedgeType: 'DIGITOVER',
+                    hedgeBarrier: '4'
+                };
+            }
+            return null;
+        }
+
+        function analyzeVolAdjusted() {
+            const window = parseInt(document.getElementById('va_window').value);
+            const highVol = parseFloat(document.getElementById('va_highVol').value);
+            const lowVol = parseFloat(document.getElementById('va_lowVol').value);
+            const recent = lastDigits.slice(-window);
+            
+            // Calculate standard deviation
+            const mean = recent.reduce((a, b) => a + b, 0) / recent.length;
+            const variance = recent.reduce((sum, d) => sum + Math.pow(d - mean, 2), 0) / recent.length;
+            const stdDev = Math.sqrt(variance);
+            
+            if (stdDev > highVol) {
+                return { type: 'DIGITOVER', barrier: '4' }; // High volatility = extreme digits
+            } else if (stdDev < lowVol) {
+                return { type: 'DIGITUNDER', barrier: '5' }; // Low volatility = low digits
+            }
+            return null;
+        }
+
+        // ========== OVER 1 / UNDER 8 STRATEGY IMPLEMENTATIONS ==========
+        function analyzeExtremeExclusionPlay() {
+            const window = parseInt(document.getElementById('eep_window').value);
+            const threshold = parseInt(document.getElementById('eep_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const digit0or1 = recent.filter(d => d === 0 || d === 1).length;
+            const digit8or9 = recent.filter(d => d === 8 || d === 9).length;
+            
+            if (digit0or1 >= threshold) {
+                return { type: 'DIGITOVER', barrier: '1' };
+            } else if (digit8or9 >= threshold) {
+                return { type: 'DIGITUNDER', barrier: '8' };
+            }
+            return null;
+        }
+
+        function analyzeGapThreshold() {
+            const window = parseInt(document.getElementById('gt_window').value);
+            const maxGapThreshold = parseInt(document.getElementById('gt_maxGap').value);
+            const recent = lastDigits.slice(-window);
+            
+            let maxGap = 0;
+            for (let i = 1; i < recent.length; i++) {
+                const gap = Math.abs(recent[i] - recent[i-1]);
+                maxGap = Math.max(maxGap, gap);
+            }
+            
+            if (maxGap >= maxGapThreshold) {
+                // Hedged trade
+                return {
+                    type: 'DIGITOVER',
+                    barrier: '1',
+                    hedged: true,
+                    hedgeType: 'DIGITUNDER',
+                    hedgeBarrier: '8'
+                };
+            }
+            return null;
+        }
+
+        function analyzeSequentialChain() {
+            const chainLength = parseInt(document.getElementById('sc_chainLength').value);
+            const recent = lastDigits.slice(-chainLength);
+            
+            let ascending = true;
+            let descending = true;
+            
+            for (let i = 1; i < recent.length; i++) {
+                if (recent[i] <= recent[i-1]) ascending = false;
+                if (recent[i] >= recent[i-1]) descending = false;
+            }
+            
+            if (ascending) {
+                return { type: 'DIGITOVER', barrier: '1' };
+            } else if (descending) {
+                return { type: 'DIGITUNDER', barrier: '8' };
+            }
+            return null;
+        }
+
+        function analyzeBoundaryReinforce() {
+            const testCount = parseInt(document.getElementById('br_testCount').value);
+            const recent = lastDigits.slice(-5);
+            
+            const digit1Tests = recent.filter(d => d === 1).length;
+            const digit8Tests = recent.filter(d => d === 8).length;
+            
+            if (digit1Tests >= testCount) {
+                return { type: 'DIGITOVER', barrier: '1' };
+            } else if (digit8Tests >= testCount) {
+                return { type: 'DIGITUNDER', barrier: '8' };
+            }
+            return null;
+        }
+
+        function analyzeComplementaryPair() {
+            const window = parseInt(document.getElementById('cp_window').value);
+            const threshold = parseInt(document.getElementById('cp_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const middleDigits = recent.filter(d => d >= 2 && d <= 7).length;
+            const middlePercent = (middleDigits / window) * 100;
+            
+            if (middlePercent > threshold) {
+                // Safe zone - hedged trade
+                return {
+                    type: 'DIGITOVER',
+                    barrier: '1',
+                    hedged: true,
+                    hedgeType: 'DIGITUNDER',
+                    hedgeBarrier: '8'
+                };
+            }
+            return null;
+        }
+
+        // ========== UNDER 3 / OVER 5 STRATEGY IMPLEMENTATIONS ==========
+        function analyzePolarizedDist() {
+            const window = parseInt(document.getElementById('pd_window').value);
+            const threshold = parseInt(document.getElementById('pd_threshold').value);
+            const recent = lastDigits.slice(-window);
+            
+            const middleDigits = recent.filter(d => d >= 3 && d <= 5).length;
+            const middlePercent = (middleDigits / window) * 100;
+            
+            if (middlePercent < threshold) {
+                // Staggered trade
+                return {
+                    type: 'DIGITUNDER',
+                    barrier: '3',
+                    staggered: true
+                };
+            }
+            return null;
+        }
+
+        function analyzeDigitGapAsym() {
+            const recent = lastDigits.slice(-10);
+            
+            let totalDist = 0;
+            for (let d of recent) {
+                totalDist += Math.abs(d - 5);
+            }
+            const avgDist = totalDist / recent.length;
+            
+            if (avgDist > 3) {
+                return { type: 'DIGITOVER', barrier: '5' };
+            } else if (avgDist < 3) {
+                return { type: 'DIGITUNDER', barrier: '3' };
+            }
+            return null;
+        }
+
+        function analyzeLowHighAlt() {
+            const consecutive = parseInt(document.getElementById('lha_consecutive').value);
+            const recent = lastDigits.slice(-consecutive);
+            
+            const allLow = recent.every(d => d <= 3);
+            const allHigh = recent.every(d => d >= 6);
+            
+            if (allLow) {
+                return { type: 'DIGITOVER', barrier: '5' };
+            } else if (allHigh) {
+                return { type: 'DIGITUNDER', barrier: '3' };
+            }
+            return null;
+        }
+
+        function analyzeFibRetrace() {
+            const lastDigit = lastDigits[lastDigits.length - 1];
+            
+            // Fib support levels: 1, 2, 3
+            // Fib resistance levels: 6, 7, 8
+            
+            if ([1, 2, 3].includes(lastDigit)) {
+                return { type: 'DIGITUNDER', barrier: '3' };
+            } else if ([6, 7, 8].includes(lastDigit)) {
+                return { type: 'DIGITOVER', barrier: '5' };
+            }
+            return null;
+        }
+
+        function analyzeDualTimeframe() {
+            const shortWindow = parseInt(document.getElementById('dtf_shortWindow').value);
+            const longWindow = parseInt(document.getElementById('dtf_longWindow').value);
+            
+            if (lastDigits.length < longWindow) return null;
+            
+            const shortRecent = lastDigits.slice(-shortWindow);
+            const longRecent = lastDigits.slice(-longWindow);
+            
+            const shortLow = shortRecent.filter(d => d <= 2).length / shortWindow;
+            const longLow = longRecent.filter(d => d <= 2).length / longWindow;
+            
+            const shortHigh = shortRecent.filter(d => d >= 6).length / shortWindow;
+            const longHigh = longRecent.filter(d => d >= 6).length / longWindow;
+            
+            if (shortLow > 0.5 && longLow > 0.5) {
+                return { type: 'DIGITUNDER', barrier: '3' };
+            } else if (shortHigh > 0.5 && longHigh > 0.5) {
+                return { type: 'DIGITOVER', barrier: '5' };
+            }
+            return null;
+        }
+
+        // ==================== TRADE EXECUTION ====================
+        async function executeSingleTrade() {
+            if (!isConnected) {
+                showToast('Not connected to Deriv', 'error');
+                return;
+            }
+            
+            if (isProcessing) {
+                showToast('Trade already in progress', 'warning');
+                return;
+            }
+            
+            if (lastDigits.length < 20) {
+                showToast('Waiting for more tick data', 'warning');
+                return;
+            }
+            
+            const signal = analyzeStrategy();
+            
+            if (!signal) {
+                showToast('No trade signal generated', 'info');
+                return;
+            }
+            
+            isProcessing = true;
+            document.getElementById('singleTradeBtn').disabled = true;
+            
+            showToast(`Executing ${signal.type} trade (Barrier: ${signal.barrier})`, 'info');
+            
+            await executeTrade(signal);
+            
+            // Handle hedged trades
+            if (signal.hedged) {
+                setTimeout(async () => {
+                    const hedgeSignal = {
+                        type: signal.hedgeType,
+                        barrier: signal.hedgeBarrier
+                    };
+                    showToast(`Executing hedged ${hedgeSignal.type} trade`, 'info');
+                    await executeTrade(hedgeSignal);
+                }, 1000);
+            }
+        }
+
+        async function executeTrade(signal) {
+            const market = document.getElementById('market').value;
+            const duration = parseInt(document.getElementById('duration').value);
+            const stake = currentStake || parseFloat(document.getElementById('initialStake').value);
+            
+            const proposalRequest = {
+                proposal: 1,
+                amount: stake,
+                basis: 'stake',
+                contract_type: signal.type,
+                currency: accountCurrency,
+                duration: duration,
+                duration_unit: 't',
+                symbol: market,
+                barrier: signal.barrier
+            };
+            
+            console.log('📤 Sending proposal:', proposalRequest);
+            
+            const proposalId = Date.now().toString();
+            pendingProposals.set(proposalId, { signal, stake });
+            
+            ws.send(JSON.stringify(proposalRequest));
+        }
+
+        function handleProposalResponse(data) {
+            if (data.error) {
+                showToast(`Proposal failed: ${data.error.message}`, 'error');
+                isProcessing = false;
+                document.getElementById('singleTradeBtn').disabled = false;
+                pendingProposals.clear();
+                return;
+            }
+            
+            if (data.proposal && data.proposal.id) {
+                console.log('✅ Proposal accepted:', data.proposal.id);
+                
+                // Buy the contract immediately
+                const buyRequest = {
+                    buy: data.proposal.id,
+                    price: data.proposal.ask_price
+                };
+                
+                console.log('📤 Buying contract:', buyRequest);
+                ws.send(JSON.stringify(buyRequest));
+            }
+        }
+
+        function handleBuyResponse(data) {
+            if (data.error) {
+                showToast(`Buy failed: ${data.error.message}`, 'error');
+                isProcessing = false;
+                document.getElementById('singleTradeBtn').disabled = false;
+                return;
+            }
+            
+            if (data.buy) {
+                console.log('✅ Trade executed:', data.buy.contract_id);
+                showToast(`Trade executed! Contract ID: ${data.buy.contract_id}`, 'success');
+                
+                // Subscribe to contract updates
+                ws.send(JSON.stringify({
+                    proposal_open_contract: 1,
+                    contract_id: data.buy.contract_id,
+                    subscribe: 1
+                }));
+            }
+        }
+
+        function handleContractUpdate(data) {
+            const contract = data.proposal_open_contract;
+            
+            if (contract.status === 'sold' || contract.is_sold) {
+                const profit = parseFloat(contract.profit);
+                const isWin = profit > 0;
+                
+                totalPnl += profit;
+                totalTrades++;
+                
+                if (isWin) {
+                    wins++;
+                    consecutiveLosses = 0;
+                    showToast(`✅ Won! +${accountCurrency} ${profit.toFixed(2)}`, 'success');
+                } else {
+                    losses++;
+                    consecutiveLosses++;
+                    showToast(`❌ Lost: ${accountCurrency} ${Math.abs(profit).toFixed(2)}`, 'error');
+                }
+                
+                updatePnL();
+                updateWinRate();
+                
+                addTradeToHistory({
+                    time: new Date().toLocaleTimeString(),
+                    strategy: currentStrategy,
+                    type: contract.contract_type,
+                    market: contract.underlying,
+                    target: contract.barrier || '-',
+                    stake: parseFloat(contract.buy_price),
+                    result: isWin ? 'Win' : 'Loss',
+                    pnl: profit
+                });
+                
+                handleMartingale(isWin);
+                
+                isProcessing = false;
+                document.getElementById('singleTradeBtn').disabled = false;
+                
+                // Check limits
+                checkTradingLimits();
+            }
+        }
+
+        function handleMartingale(isWin) {
+            const enabled = document.getElementById('enableMartingale').checked;
+            const initialStake = parseFloat(document.getElementById('initialStake').value);
+            
+            if (!enabled) {
+                currentStake = initialStake;
+                martingaleStep = 0;
+                updateCurrentStakeDisplay();
+                return;
+            }
+            
+            if (isWin) {
+                currentStake = initialStake;
+                martingaleStep = 0;
+                showToast('Martingale reset to initial stake', 'info');
+            } else {
+                const maxSteps = parseInt(document.getElementById('maxMartingaleSteps').value);
+                
+                if (martingaleStep < maxSteps) {
+                    currentStake = currentStake ? currentStake * 2 : initialStake * 2;
+                    martingaleStep++;
+                    showToast(`Martingale step ${martingaleStep}: ${accountCurrency} ${currentStake.toFixed(2)}`, 'warning');
+                } else {
+                    currentStake = initialStake;
+                    martingaleStep = 0;
+                    showToast('Max martingale steps reached - Reset', 'warning');
+                }
+            }
+            
+            updateCurrentStakeDisplay();
+        }
+
+        function checkTradingLimits() {
+            const maxTrades = parseInt(document.getElementById('maxTrades').value);
+            const maxLoss = parseFloat(document.getElementById('maxLoss').value);
+            const maxProfit = parseFloat(document.getElementById('maxProfit').value);
+            
+            if (maxTrades > 0 && totalTrades >= maxTrades) {
+                stopAutoTrading();
+                showToast('🎯 Trade limit reached!', 'warning');
+                return;
+            }
+            
+            if (Math.abs(totalPnl) >= maxLoss && totalPnl < 0) {
+                stopAutoTrading();
+                showToast('⛔ Max loss limit reached!', 'error');
+                return;
+            }
+            
+            if (totalPnl >= maxProfit) {
+                stopAutoTrading();
+                showToast('🎉 Profit target reached!', 'success');
+                return;
+            }
+        }
+
+        // ==================== TRADE HISTORY ====================
+        function addTradeToHistory(trade) {
+            tradeHistory.unshift(trade);
+            
+            if (tradeHistory.length > 100) {
+                tradeHistory.pop();
+            }
+            
+            const tbody = document.getElementById('tradeHistory');
+            tbody.innerHTML = tradeHistory.map(t => `
+                <tr class="hover:bg-gray-700">
+                    <td class="p-3">${t.time}</td>
+                    <td class="p-3 text-xs">${t.strategy}</td>
+                    <td class="p-3 text-xs">${t.type}</td>
+                    <td class="p-3">${t.market}</td>
+                    <td class="p-3 text-center font-bold">${t.target}</td>
+                    <td class="p-3">${accountCurrency} ${t.stake.toFixed(2)}</td>
+                    <td class="p-3">
+                        <span class="px-3 py-1 rounded-full text-xs ${t.result === 'Win' ? 'bg-green-600' : 'bg-red-600'}">
+                            ${t.result}
+                        </span>
+                    </td>
+                    <td class="p-3 font-bold ${t.pnl >= 0 ? 'profit' : 'loss'}">
+                        ${t.pnl >= 0 ? '+' : ''}${accountCurrency} ${t.pnl.toFixed(2)}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function exportHistory() {
+            if (tradeHistory.length === 0) {
+                showToast('No trade history to export', 'warning');
+                return;
+            }
+            
+            const csv = [
+                ['Time', 'Strategy', 'Type', 'Market', 'Target', 'Stake', 'Result', 'PnL'],
+                ...tradeHistory.map(t => [
+                    t.time,
+                    t.strategy,
+                    t.type,
+                    t.market,
+                    t.target,
+                    t.stake.toFixed(2),
+                    t.result,
+                    t.pnl.toFixed(2)
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `deriv_trades_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Trade history exported!', 'success');
+        }
+
+        // ==================== AUTO TRADING ====================
+        function startAutoTrading() {
+            if (!isConnected) {
+                showToast('Not connected to Deriv', 'error');
+                return;
+            }
+            
+            if (lastDigits.length < 20) {
+                showToast('Waiting for more tick data', 'warning');
+                return;
+            }
+            
+            isTrading = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            currentStake = parseFloat(document.getElementById('initialStake').value);
+            martingaleStep = 0;
+            
+            showToast('🚀 Auto trading started!', 'success');
+            
+            tradingInterval = setInterval(() => {
+                if (isTrading && lastDigits.length >= 20 && !isProcessing) {
+                    const signal = analyzeStrategy();
+                    if (signal) {
+                        executeSingleTrade();
+                    }
+                }
+            }, 5000); // Check every 5 seconds
+        }
+
+        function stopAutoTrading() {
+            isTrading = false;
+            
+            if (tradingInterval) {
+                clearInterval(tradingInterval);
+                tradingInterval = null;
+            }
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            showToast('⛔ Auto trading stopped', 'info');
+        }
+
+        function resetSession() {
+            if (!confirm('Reset session statistics? This will not affect your balance.')) {
+                return;
+            }
+            
+            totalPnl = 0;
+            totalTrades = 0;
+            wins = 0;
+            losses = 0;
+            martingaleStep = 0;
+            consecutiveLosses = 0;
+            currentStake = parseFloat(document.getElementById('initialStake').value);
+            tradeHistory = [];
+            
+            document.getElementById('tradeHistory').innerHTML = 
+                '<tr><td colspan="8" class="p-8 text-center text-gray-500">No trades yet</td></tr>';
+            
+            updatePnL();
+            updateWinRate();
+            updateCurrentStakeDisplay();
+            
+            showToast('Session reset successfully', 'success');
+        }
+
+        // ==================== INITIALIZATION ====================
+        window.onload = function() {
+            selectStrategyCategory('over2under7');
+            updateWinRate();
+            updateCurrentStakeDisplay();
+            showToast('Deriv Auto Trader V5 Ready! 🚀', 'success');
+        };
+    </script>
+</body>
+</html>

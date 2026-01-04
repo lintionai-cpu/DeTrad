@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rise/Fall- Extreme Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .status-connected {
+        color: #10b981;
+      }
+      .status-disconnected {
+        color: #ef4444;
+      }
+      .profit {
+        color: #10b981;
+      }
+      .loss {
+        color: #ef4444;
+      }
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+      }
+      .toast {
+        background: linear-gradient(135deg, #1f2937, #111827);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease;
+        display: flex;
+        gap: 12px;
+      }
+      .toast.success {
+        border-left: 4px solid #10b981;
+      }
+      .toast.error {
+        border-left: 4px solid #ef4444;
+      }
+      .toast.warning {
+        border-left: 4px solid #f59e0b;
+      }
+      .toast.info {
+        border-left: 4px solid #3b82f6;
+      }
+      @keyframes slideIn {
+        from {
+          transform: translateX(450px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .pulse {
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .glow {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .strategy-btn {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+      .strategy-btn.active {
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        border-color: #60a5fa;
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+      }
+      .extreme-badge {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        animation: pulse 2s ease-in-out infinite;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen p-4"
+  >
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-red-900"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h1
+              class="text-3xl font-bold flex items-center gap-3"
+              style="
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+              "
+            >
+              ⚡ Rise/Fall Trader <span class="extreme-badge">EXTREME</span>
+            </h1>
+            <p class="text-sm text-gray-400 mt-1">
+              Volatility 100 - Ultra-Fast Trading Strategies
+            </p>
+          </div>
+          <div
+            class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700"
+          >
+            <span
+              id="connectionDot"
+              class="w-3 h-3 rounded-full bg-red-500"
+            ></span>
+            <span
+              id="connectionStatus"
+              class="status-disconnected font-semibold"
+              >Disconnected</span
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4">
+          <div
+            class="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-blue-200">Balance</p>
+            <p id="balance" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-purple-200">PnL</p>
+            <p id="totalPnl" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-green-600 to-green-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-green-200">Win Rate</p>
+            <p id="winRate" class="text-2xl font-bold">0%</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-orange-600 to-orange-800 p-4 rounded-xl"
+          >
+            <p class="text-xs text-orange-200">Trades</p>
+            <p id="totalTrades" class="text-2xl font-bold">0</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3 mt-3">
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Stake</p>
+            <p id="currentStakeDisplay" class="text-lg font-bold text-blue-400">
+              $0.00
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Signal</p>
+            <p id="currentSignal" class="text-lg font-bold text-yellow-400">
+              WAITING
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Tick Buffer</p>
+            <p id="tickBuffer" class="text-lg font-bold text-green-400">0</p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Remaining</p>
+            <p id="tradesRemaining" class="text-lg font-bold text-purple-400">
+              ∞
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Connection -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-3">🔐 API Connection</h2>
+        <div
+          class="bg-red-900 bg-opacity-30 border border-red-600 rounded-lg p-3 mb-4 text-sm"
+        >
+          <p class="font-semibold mb-1">⚠️ EXTREME RISK WARNING</p>
+          <p class="text-xs text-gray-300">
+            These strategies are HIGH RISK and trade VERY FAST. Start with DEMO
+            accounts and minimum stakes!
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <input
+            type="password"
+            id="apiToken"
+            placeholder="Deriv API Token"
+            class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+          />
+          <button
+            onclick="connectAPI()"
+            id="connectBtn"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            Connect
+          </button>
+          <button
+            onclick="disconnectAPI()"
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      <!-- Risk Management -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">⚠️ Risk Management</h2>
+        <div class="grid grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm mb-2">Initial Stake ($)</label>
+            <input
+              type="number"
+              id="initialStake"
+              min="0.35"
+              step="0.01"
+              value="0.35"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Loss ($)</label>
+            <input
+              type="number"
+              id="maxLoss"
+              min="1"
+              value="20"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Profit ($)</label>
+            <input
+              type="number"
+              id="maxProfit"
+              min="1"
+              value="50"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+          <div>
+            <label class="block text-sm mb-2">Max Trades (0=∞)</label>
+            <input
+              type="number"
+              id="maxTrades"
+              min="0"
+              value="100"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+            />
+          </div>
+        </div>
+        <div
+          class="mt-4 bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-lg"
+        >
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              id="enableMartingale"
+              class="w-5 h-5 cursor-pointer"
+            />
+            <span class="font-semibold"
+              >Enable Martingale (Doubles on Loss)</span
+            >
+          </label>
+          <div class="mt-3">
+            <label class="block text-sm mb-2">Max Martingale Steps</label>
+            <input
+              type="number"
+              id="maxMartingaleSteps"
+              min="1"
+              max="5"
+              value="3"
+              class="w-full bg-gray-600 rounded-lg px-3 py-2"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- EXTREME STRATEGIES -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-red-900"
+      >
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+          ⚡ EXTREME Volatility 100 Strategies
+          <span class="extreme-badge">ADRENALINE</span>
+        </h2>
+
+        <!-- Strategy Selector -->
+        <div class="grid grid-cols-5 gap-3 mb-6">
+          <button
+            onclick="selectStrategy('ultraFast')"
+            id="stratBtn-ultraFast"
+            class="strategy-btn active p-4 rounded-xl text-left"
+          >
+            <p class="font-bold">🚀 Ultra-Fast Trend</p>
+            <p class="text-xs mt-1">2-tick momentum</p>
+          </button>
+          <button
+            onclick="selectStrategy('shockReversal')"
+            id="stratBtn-shockReversal"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold">💥 Shock Reversal</p>
+            <p class="text-xs mt-1">±2pt spike reverse</p>
+          </button>
+          <button
+            onclick="selectStrategy('digitPulse')"
+            id="stratBtn-digitPulse"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold">🎯 Digit Pulse</p>
+            <p class="text-xs mt-1">Digit streak trend</p>
+          </button>
+          <button
+            onclick="selectStrategy('microBounce')"
+            id="stratBtn-microBounce"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold">🎱 Micro-Range</p>
+            <p class="text-xs mt-1">±1pt bounce</p>
+          </button>
+          <button
+            onclick="selectStrategy('volatilityFade')"
+            id="stratBtn-volatilityFade"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl text-left"
+          >
+            <p class="font-bold">📉 Volatility Fade</p>
+            <p class="text-xs mt-1">2× MA fade</p>
+          </button>
+        </div>
+
+        <!-- Ultra-Fast Trend Strategy -->
+        <div
+          id="ultraFastStrategy"
+          class="bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">🚀 Ultra-Fast Trend Strategy</h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Detects 2+ consecutive tick moves in same direction → enters same
+            direction for 1 tick
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Consecutive Ticks Required</label
+              >
+              <input
+                type="number"
+                id="ultraFastTicks"
+                min="2"
+                max="5"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Number of consecutive moves to trigger signal
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="ultraFastDuration"
+                min="1"
+                max="3"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                How long to hold the position
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Minimum Move Size</label
+              >
+              <input
+                type="number"
+                id="ultraFastMinMove"
+                min="0.1"
+                max="2"
+                step="0.1"
+                value="0.5"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Minimum price change per tick
+              </p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Strategy Status:</p>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                Trend Direction:
+                <span id="trendDirection" class="font-bold text-blue-400"
+                  >-</span
+                >
+              </div>
+              <div>
+                Consecutive Moves:
+                <span id="consecutiveMoves" class="font-bold text-yellow-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Signal Ready:
+                <span id="ultraFastReady" class="font-bold text-green-400"
+                  >NO</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shock Reversal Strategy -->
+        <div
+          id="shockReversalStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">💥 Shock Reversal Strategy</h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Detects single tick moves ≥ threshold → immediately reverses for
+            quick profit
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Shock Threshold (Points)</label
+              >
+              <input
+                type="number"
+                id="shockThreshold"
+                min="1"
+                max="10"
+                step="0.5"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Price move that triggers reversal
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="shockDuration"
+                min="1"
+                max="3"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Quick exit after reversal
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Cooldown Period (Ticks)</label
+              >
+              <input
+                type="number"
+                id="shockCooldown"
+                min="1"
+                max="10"
+                value="3"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Wait time before next signal
+              </p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Shock Status:</p>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                Last Move:
+                <span id="lastMove" class="font-bold text-blue-400">0.0</span>
+                pts
+              </div>
+              <div>
+                Cooldown:
+                <span id="shockCooldownLeft" class="font-bold text-yellow-400"
+                  >0</span
+                >
+                ticks
+              </div>
+              <div>
+                Signal:
+                <span id="shockSignal" class="font-bold text-red-400">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Digit Pulse Strategy -->
+        <div
+          id="digitPulseStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">🎯 Digit-Based Pulse Strategy</h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Last digit repeat streak → enters Rise/Fall based on price trend
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Digit Streak Length</label
+              >
+              <input
+                type="number"
+                id="digitStreakLength"
+                min="2"
+                max="5"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Consecutive same digits needed
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="digitPulseDuration"
+                min="1"
+                max="3"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Position hold time</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trend Confirmation</label
+              >
+              <select
+                id="digitTrendMode"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              >
+                <option value="price">Price Trend</option>
+                <option value="momentum">Momentum</option>
+                <option value="both">Both Required</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Pulse Status:</p>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                Current Digit:
+                <span id="currentDigit" class="font-bold text-blue-400">-</span>
+              </div>
+              <div>
+                Streak:
+                <span id="digitStreak" class="font-bold text-yellow-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Trend:
+                <span id="digitTrend" class="font-bold text-green-400">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Micro-Range Bounce Strategy -->
+        <div
+          id="microBounceStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">🎱 Micro-Range Bounce Strategy</h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Detects ±1 point consolidation → trades boundary bounces
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Range Width (Points)</label
+              >
+              <input
+                type="number"
+                id="rangeWidth"
+                min="0.5"
+                max="3"
+                step="0.5"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Total range size to detect
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Consolidation Period (Ticks)</label
+              >
+              <input
+                type="number"
+                id="consolidationTicks"
+                min="3"
+                max="10"
+                value="5"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">
+                Ticks in range before entry
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="bounceDuration"
+                min="1"
+                max="3"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Quick bounce exit</p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Bounce Status:</p>
+            <div class="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                Range High:
+                <span id="rangeHigh" class="font-bold text-red-400">-</span>
+              </div>
+              <div>
+                Range Low:
+                <span id="rangeLow" class="font-bold text-blue-400">-</span>
+              </div>
+              <div>
+                In Range:
+                <span id="inRangeTicks" class="font-bold text-yellow-400"
+                  >0</span
+                >
+              </div>
+              <div>
+                Signal:
+                <span id="bounceSignal" class="font-bold text-green-400"
+                  >-</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Volatility Fade Strategy -->
+        <div
+          id="volatilityFadeStrategy"
+          class="hidden bg-gray-700 bg-opacity-50 p-6 rounded-lg border border-gray-600"
+        >
+          <h3 class="font-bold text-lg mb-3">
+            📉 Volatility Damp Fade Strategy
+          </h3>
+          <p class="text-sm text-gray-300 mb-4">
+            Tick move ≥2× moving average → fade the move immediately
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >MA Length (Ticks)</label
+              >
+              <input
+                type="number"
+                id="maLength"
+                min="5"
+                max="20"
+                value="10"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Moving average period</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Volatility Multiplier</label
+              >
+              <input
+                type="number"
+                id="volMultiplier"
+                min="1.5"
+                max="5"
+                step="0.5"
+                value="2"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">× MA to trigger fade</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold"
+                >Trade Duration (Ticks)</label
+              >
+              <input
+                type="number"
+                id="fadeDuration"
+                min="1"
+                max="3"
+                value="1"
+                class="w-full bg-gray-600 rounded-lg px-3 py-2"
+              />
+              <p class="text-xs text-gray-400 mt-1">Quick fade exit</p>
+            </div>
+          </div>
+          <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+            <p class="text-xs font-semibold mb-2">📊 Fade Status:</p>
+            <div class="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                MA:
+                <span id="currentMA" class="font-bold text-blue-400">-</span>
+              </div>
+              <div>
+                Last Move:
+                <span id="fadeLastMove" class="font-bold text-yellow-400"
+                  >-</span
+                >
+              </div>
+              <div>
+                Threshold:
+                <span id="fadeThreshold" class="font-bold text-red-400">-</span>
+              </div>
+              <div>
+                Signal:
+                <span id="fadeSignal" class="font-bold text-green-400">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">🎮 Trading Controls</h2>
+        <div class="grid grid-cols-4 gap-3">
+          <button
+            onclick="startAutoTrading()"
+            id="startBtn"
+            class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            🚀 START
+          </button>
+          <button
+            onclick="stopAutoTrading()"
+            id="stopBtn"
+            disabled
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            ⛔ STOP
+          </button>
+          <button
+            onclick="executeSingleTrade()"
+            id="singleBtn"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            ⚡ SINGLE
+          </button>
+          <button
+            onclick="resetSession()"
+            class="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4 rounded-xl font-bold text-lg"
+          >
+            🔄 RESET
+          </button>
+        </div>
+      </div>
+
+      <!-- Trade History -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">📜 Trade History</h2>
+          <button
+            onclick="exportHistory()"
+            class="bg-purple-600 px-4 py-2 rounded-lg font-semibold"
+          >
+            📥 Export CSV
+          </button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-700">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="p-3 text-left">Time</th>
+                <th class="p-3 text-left">Strategy</th>
+                <th class="p-3 text-left">Direction</th>
+                <th class="p-3 text-left">Stake</th>
+                <th class="p-3 text-left">Result</th>
+                <th class="p-3 text-left">PnL</th>
+              </tr>
+            </thead>
+            <tbody id="tradeHistory" class="divide-y divide-gray-700">
+              <tr>
+                <td colspan="6" class="p-8 text-center text-gray-500">
+                  No trades yet - Start trading!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Global Variables
+      let ws,
+        isConnected = false,
+        isTrading = false,
+        isProcessing = false,
+        balance = 0,
+        totalPnl = 0,
+        currentStake = 0,
+        martingaleStep = 0;
+      let tradeHistory = [],
+        tickData = [],
+        prices = [],
+        totalTrades = 0,
+        wins = 0,
+        losses = 0,
+        tradingInterval = null;
+      let currentStrategy = "ultraFast";
+
+      // Strategy States
+      let ultraFastState = {
+        consecutiveMoves: 0,
+        lastDirection: null,
+        ready: false,
+      };
+      let shockState = { cooldownLeft: 0, lastMove: 0 };
+      let digitPulseState = { currentDigit: null, streak: 0, trend: null };
+      let microBounceState = {
+        rangeHigh: null,
+        rangeLow: null,
+        inRangeTicks: 0,
+      };
+      let fadeState = { ma: null, moves: [] };
+
+      function showToast(m, t = "info") {
+        const c = document.getElementById("toastContainer"),
+          d = document.createElement("div");
+        d.className = `toast ${t}`;
+        const i = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+        d.innerHTML = `<div class="text-2xl">${
+          i[t]
+        }</div><div><p class="font-bold text-sm">${t.toUpperCase()}</p><p class="text-sm">${m}</p></div>`;
+        c.appendChild(d);
+        setTimeout(() => d.remove(), 5000);
+      }
+
+      function connectAPI() {
+        const t = document.getElementById("apiToken").value.trim();
+        if (!t) {
+          showToast("Enter API token", "error");
+          return;
+        }
+        ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+        ws.onopen = () => ws.send(JSON.stringify({ authorize: t }));
+        ws.onmessage = (m) => handleWSMessage(JSON.parse(m.data));
+        ws.onerror = () => {
+          showToast("Connection error", "error");
+          updateConnectionStatus(false);
+        };
+        ws.onclose = () => {
+          updateConnectionStatus(false);
+          if (isTrading) stopAutoTrading();
+        };
+      }
+
+      function disconnectAPI() {
+        if (ws) ws.close();
+        stopAutoTrading();
+        updateConnectionStatus(false);
+        showToast("Disconnected", "info");
+      }
+
+      function updateConnectionStatus(c) {
+        isConnected = c;
+        document.getElementById("connectionStatus").textContent = c
+          ? "Connected"
+          : "Disconnected";
+        document.getElementById("connectionStatus").className = c
+          ? "status-connected font-semibold"
+          : "status-disconnected font-semibold";
+        document.getElementById(
+          "connectionDot"
+        ).className = `w-3 h-3 rounded-full ${
+          c ? "bg-green-500 glow" : "bg-red-500"
+        }`;
+      }
+
+      function handleWSMessage(d) {
+        if (d.error) {
+          showToast(d.error.message, "error");
+          return;
+        }
+        if (d.msg_type === "authorize" && d.authorize) {
+          isConnected = true;
+          balance = parseFloat(d.authorize.balance);
+          updateConnectionStatus(true);
+          updateBalance();
+          ws.send(JSON.stringify({ ticks: "R_100", subscribe: 1 }));
+          showToast("Connected to Volatility 100!", "success");
+        } else if (d.msg_type === "tick") handleTick(d.tick);
+        else if (d.msg_type === "proposal") handleProposal(d);
+        else if (d.msg_type === "buy") handleBuy(d);
+        else if (d.msg_type === "proposal_open_contract") handleContract(d);
+        else if (d.msg_type === "balance") {
+          balance = parseFloat(d.balance.balance);
+          updateBalance();
+        }
+      }
+
+      function handleTick(t) {
+        prices.push(parseFloat(t.quote));
+        if (prices.length > 50) prices.shift();
+        tickData.push(t);
+        if (tickData.length > 50) tickData.shift();
+        document.getElementById("tickBuffer").textContent = prices.length;
+        if (prices.length >= 5) analyzeMarket();
+      }
+
+      function analyzeMarket() {
+        if (currentStrategy === "ultraFast") analyzeUltraFast();
+        else if (currentStrategy === "shockReversal") analyzeShock();
+        else if (currentStrategy === "digitPulse") analyzeDigitPulse();
+        else if (currentStrategy === "microBounce") analyzeMicroBounce();
+        else if (currentStrategy === "volatilityFade") analyzeFade();
+      }
+
+      function analyzeUltraFast() {
+        const req = parseInt(document.getElementById("ultraFastTicks").value),
+          minMove = parseFloat(
+            document.getElementById("ultraFastMinMove").value
+          );
+        let dir = null,
+          moves = 0;
+        for (
+          let i = prices.length - 1;
+          i > prices.length - req - 1 && i > 0;
+          i--
+        ) {
+          const change = prices[i] - prices[i - 1];
+          if (Math.abs(change) >= minMove) {
+            const d = change > 0 ? "CALL" : "PUT";
+            if (dir === null) {
+              dir = d;
+              moves = 1;
+            } else if (dir === d) moves++;
+            else break;
+          } else break;
+        }
+        ultraFastState.consecutiveMoves = moves;
+        ultraFastState.lastDirection = dir;
+        ultraFastState.ready = moves >= req;
+        document.getElementById("consecutiveMoves").textContent = moves;
+        document.getElementById("trendDirection").textContent = dir || "-";
+        document.getElementById("ultraFastReady").textContent =
+          ultraFastState.ready ? "YES" : "NO";
+        document.getElementById("currentSignal").textContent =
+          ultraFastState.ready ? dir : "WAITING";
+        if (ultraFastState.ready && isTrading && !isProcessing)
+          executeTrade(dir);
+      }
+
+      function analyzeShock() {
+        if (shockState.cooldownLeft > 0) {
+          shockState.cooldownLeft--;
+          return;
+        }
+        if (prices.length < 2) return;
+        const threshold = parseFloat(
+            document.getElementById("shockThreshold").value
+          ),
+          lastMove = Math.abs(
+            prices[prices.length - 1] - prices[prices.length - 2]
+          );
+        shockState.lastMove = lastMove;
+        document.getElementById("lastMove").textContent = lastMove.toFixed(2);
+        document.getElementById("shockCooldownLeft").textContent =
+          shockState.cooldownLeft;
+        if (lastMove >= threshold) {
+          const dir =
+            prices[prices.length - 1] > prices[prices.length - 2]
+              ? "PUT"
+              : "CALL";
+          document.getElementById("shockSignal").textContent = dir;
+          document.getElementById("currentSignal").textContent = dir + " SHOCK";
+          shockState.cooldownLeft = parseInt(
+            document.getElementById("shockCooldown").value
+          );
+          if (isTrading && !isProcessing) executeTrade(dir);
+        } else {
+          document.getElementById("shockSignal").textContent = "-";
+        }
+      }
+
+      function analyzeDigitPulse() {
+        const streakLen = parseInt(
+          document.getElementById("digitStreakLength").value
+        );
+        if (prices.length < streakLen) return;
+        const digits = prices
+          .slice(-streakLen)
+          .map((p) => parseInt(p.toString().slice(-1)));
+        const lastDigit = digits[digits.length - 1];
+        let streak = 1;
+        for (let i = digits.length - 2; i >= 0; i--) {
+          if (digits[i] === lastDigit) streak++;
+          else break;
+        }
+        digitPulseState.currentDigit = lastDigit;
+        digitPulseState.streak = streak;
+        document.getElementById("currentDigit").textContent = lastDigit;
+        document.getElementById("digitStreak").textContent = streak;
+        if (streak >= streakLen) {
+          const trend =
+            prices[prices.length - 1] > prices[prices.length - 2]
+              ? "CALL"
+              : "PUT";
+          digitPulseState.trend = trend;
+          document.getElementById("digitTrend").textContent = trend;
+          document.getElementById("currentSignal").textContent =
+            trend + " PULSE";
+          if (isTrading && !isProcessing) executeTrade(trend);
+        } else {
+          document.getElementById("digitTrend").textContent = "-";
+        }
+      }
+
+      function analyzeMicroBounce() {
+        const width = parseFloat(document.getElementById("rangeWidth").value),
+          consol = parseInt(
+            document.getElementById("consolidationTicks").value
+          );
+        if (prices.length < consol) return;
+        const recent = prices.slice(-consol),
+          high = Math.max(...recent),
+          low = Math.min(...recent),
+          range = high - low;
+        microBounceState.rangeHigh = high;
+        microBounceState.rangeLow = low;
+        document.getElementById("rangeHigh").textContent = high.toFixed(2);
+        document.getElementById("rangeLow").textContent = low.toFixed(2);
+        if (range <= width) {
+          microBounceState.inRangeTicks++;
+          document.getElementById("inRangeTicks").textContent =
+            microBounceState.inRangeTicks;
+          if (microBounceState.inRangeTicks >= consol) {
+            const curr = prices[prices.length - 1],
+              dir = curr <= low + width * 0.3 ? "CALL" : "PUT";
+            document.getElementById("bounceSignal").textContent = dir;
+            document.getElementById("currentSignal").textContent =
+              dir + " BOUNCE";
+            if (isTrading && !isProcessing) {
+              executeTrade(dir);
+              microBounceState.inRangeTicks = 0;
+            }
+          }
+        } else {
+          microBounceState.inRangeTicks = 0;
+          document.getElementById("inRangeTicks").textContent = 0;
+          document.getElementById("bounceSignal").textContent = "-";
+        }
+      }
+
+      function analyzeFade() {
+        const maLen = parseInt(document.getElementById("maLength").value),
+          mult = parseFloat(document.getElementById("volMultiplier").value);
+        if (prices.length < maLen + 1) return;
+        const recent = prices.slice(-maLen),
+          ma = recent.reduce((a, b) => a + b, 0) / maLen,
+          moves = [];
+        for (let i = prices.length - maLen; i < prices.length - 1; i++)
+          moves.push(Math.abs(prices[i + 1] - prices[i]));
+        const avgMove = moves.reduce((a, b) => a + b, 0) / moves.length,
+          lastMove = Math.abs(
+            prices[prices.length - 1] - prices[prices.length - 2]
+          ),
+          threshold = avgMove * mult;
+        fadeState.ma = ma;
+        fadeState.moves = moves;
+        document.getElementById("currentMA").textContent = ma.toFixed(2);
+        document.getElementById("fadeLastMove").textContent =
+          lastMove.toFixed(2);
+        document.getElementById("fadeThreshold").textContent =
+          threshold.toFixed(2);
+        if (lastMove >= threshold) {
+          const dir =
+            prices[prices.length - 1] > prices[prices.length - 2]
+              ? "PUT"
+              : "CALL";
+          document.getElementById("fadeSignal").textContent = dir;
+          document.getElementById("currentSignal").textContent = dir + " FADE";
+          if (isTrading && !isProcessing) executeTrade(dir);
+        } else {
+          document.getElementById("fadeSignal").textContent = "-";
+        }
+      }
+
+      async function executeTrade(dir) {
+        isProcessing = true;
+        document.getElementById("singleBtn").disabled = true;
+        const stake =
+          currentStake ||
+          parseFloat(document.getElementById("initialStake").value);
+        let duration = 1;
+        if (currentStrategy === "ultraFast")
+          duration = parseInt(
+            document.getElementById("ultraFastDuration").value
+          );
+        else if (currentStrategy === "shockReversal")
+          duration = parseInt(document.getElementById("shockDuration").value);
+        else if (currentStrategy === "digitPulse")
+          duration = parseInt(
+            document.getElementById("digitPulseDuration").value
+          );
+        else if (currentStrategy === "microBounce")
+          duration = parseInt(document.getElementById("bounceDuration").value);
+        else if (currentStrategy === "volatilityFade")
+          duration = parseInt(document.getElementById("fadeDuration").value);
+        const pr = {
+          proposal: 1,
+          amount: stake,
+          basis: "stake",
+          contract_type: dir,
+          currency: "USD",
+          duration: duration,
+          duration_unit: "t",
+          symbol: "R_100",
+        };
+        ws.send(JSON.stringify(pr));
+      }
+
+      function handleProposal(d) {
+        if (d.error) {
+          showToast("Proposal failed", "error");
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          return;
+        }
+        if (d.proposal)
+          ws.send(
+            JSON.stringify({ buy: d.proposal.id, price: d.proposal.ask_price })
+          );
+      }
+
+      function handleBuy(d) {
+        if (d.error) {
+          showToast("Buy failed", "error");
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          return;
+        }
+        ws.send(
+          JSON.stringify({
+            proposal_open_contract: 1,
+            contract_id: d.buy.contract_id,
+            subscribe: 1,
+          })
+        );
+      }
+
+      function handleContract(d) {
+        const c = d.proposal_open_contract;
+        if (c.status === "sold" || c.is_sold) {
+          const p = parseFloat(c.profit),
+            w = p > 0;
+          totalPnl += p;
+          totalTrades++;
+          if (w) {
+            wins++;
+            showToast(`WON! +$${p.toFixed(2)}`, "success");
+          } else {
+            losses++;
+            showToast(`LOST: $${p.toFixed(2)}`, "error");
+          }
+          updatePnL();
+          updateWinRate();
+          addTradeToHistory({
+            time: new Date().toLocaleTimeString(),
+            strategy: currentStrategy,
+            direction: c.contract_type,
+            stake: parseFloat(c.buy_price),
+            result: w ? "Win" : "Loss",
+            pnl: p,
+          });
+          handleMartingale(w);
+          isProcessing = false;
+          document.getElementById("singleBtn").disabled = false;
+          const mt = parseInt(document.getElementById("maxTrades").value);
+          if (mt > 0 && totalTrades >= mt) {
+            stopAutoTrading();
+            showToast("Trade limit!", "warning");
+            return;
+          }
+          if (
+            Math.abs(totalPnl) >=
+            parseFloat(document.getElementById("maxLoss").value)
+          ) {
+            stopAutoTrading();
+            showToast("Max loss!", "error");
+            return;
+          }
+          if (
+            totalPnl >= parseFloat(document.getElementById("maxProfit").value)
+          ) {
+            stopAutoTrading();
+            showToast("Profit target! 🎉", "success");
+            return;
+          }
+        }
+      }
+
+      function handleMartingale(w) {
+        const e = document.getElementById("enableMartingale").checked,
+          i = parseFloat(document.getElementById("initialStake").value);
+        if (!e) {
+          currentStake = i;
+          martingaleStep = 0;
+        } else if (w) {
+          currentStake = i;
+          martingaleStep = 0;
+        } else {
+          const m = parseInt(
+            document.getElementById("maxMartingaleSteps").value
+          );
+          if (martingaleStep < m) {
+            currentStake = currentStake ? currentStake * 2 : i * 2;
+            martingaleStep++;
+          } else {
+            currentStake = i;
+            martingaleStep = 0;
+          }
+        }
+        updateCurrentStakeDisplay();
+      }
+
+      function updateBalance() {
+        document.getElementById("balance").textContent = `$${balance.toFixed(
+          2
+        )}`;
+      }
+      function updatePnL() {
+        const e = document.getElementById("totalPnl");
+        e.textContent = `$${totalPnl.toFixed(2)}`;
+        e.className = `text-2xl font-bold ${totalPnl >= 0 ? "profit" : "loss"}`;
+      }
+      function updateWinRate() {
+        const r = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+        document.getElementById("winRate").textContent = `${r}%`;
+        document.getElementById("totalTrades").textContent = totalTrades;
+        const m = parseInt(document.getElementById("maxTrades").value);
+        document.getElementById("tradesRemaining").textContent =
+          m > 0 ? Math.max(0, m - totalTrades) : "∞";
+      }
+      function updateCurrentStakeDisplay() {
+        document.getElementById(
+          "currentStakeDisplay"
+        ).textContent = `$${currentStake.toFixed(2)}`;
+      }
+
+      function addTradeToHistory(t) {
+        tradeHistory.unshift(t);
+        if (tradeHistory.length > 100) tradeHistory.pop();
+        document.getElementById("tradeHistory").innerHTML = tradeHistory
+          .map(
+            (t) =>
+              `<tr class="hover:bg-gray-700"><td class="p-3">${
+                t.time
+              }</td><td class="p-3 text-xs">${
+                t.strategy
+              }</td><td class="p-3 font-bold">${
+                t.direction
+              }</td><td class="p-3">$${t.stake.toFixed(
+                2
+              )}</td><td class="p-3"><span class="px-3 py-1 rounded-full text-xs ${
+                t.result === "Win" ? "bg-green-600" : "bg-red-600"
+              }">${t.result}</span></td><td class="p-3 font-bold ${
+                t.pnl >= 0 ? "profit" : "loss"
+              }">${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}</td></tr>`
+          )
+          .join("");
+      }
+
+      function startAutoTrading() {
+        if (!isConnected) {
+          showToast("Not connected!", "error");
+          return;
+        }
+        if (prices.length < 5) {
+          showToast("Waiting for ticks...", "warning");
+          return;
+        }
+        isTrading = true;
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        currentStake = parseFloat(
+          document.getElementById("initialStake").value
+        );
+        martingaleStep = 0;
+        showToast("AUTO TRADING STARTED! ⚡", "success");
+      }
+
+      function stopAutoTrading() {
+        isTrading = false;
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+        showToast("Trading stopped", "info");
+      }
+
+      function resetSession() {
+        if (!confirm("Reset session?")) return;
+        totalPnl = 0;
+        totalTrades = 0;
+        wins = 0;
+        losses = 0;
+        martingaleStep = 0;
+        currentStake = parseFloat(
+          document.getElementById("initialStake").value
+        );
+        tradeHistory = [];
+        prices = [];
+        tickData = [];
+        document.getElementById("tradeHistory").innerHTML =
+          '<tr><td colspan="6" class="p-8 text-center text-gray-500">No trades yet</td></tr>';
+        updatePnL();
+        updateWinRate();
+        updateCurrentStakeDisplay();
+        showToast("Reset!", "success");
+      }
+
+      function exportHistory() {
+        if (tradeHistory.length === 0) {
+          showToast("No history", "warning");
+          return;
+        }
+        const csv = [
+          ["Time", "Strategy", "Direction", "Stake", "Result", "PnL"],
+          ...tradeHistory.map((t) => [
+            t.time,
+            t.strategy,
+            t.direction,
+            t.stake.toFixed(2),
+            t.result,
+            t.pnl.toFixed(2),
+          ]),
+        ]
+          .map((r) => r.join(","))
+          .join("\n");
+        const b = new Blob([csv], { type: "text/csv" }),
+          u = URL.createObjectURL(b),
+          a = document.createElement("a");
+        a.href = u;
+        a.download = `extreme_trades_${
+          new Date().toISOString().split("T")[0]
+        }.csv`;
+        a.click();
+        URL.revokeObjectURL(u);
+        showToast("Exported!", "success");
+      }
+
+      function selectStrategy(s) {
+        currentStrategy = s;
+        [
+          "ultraFast",
+          "shockReversal",
+          "digitPulse",
+          "microBounce",
+          "volatilityFade",
+        ].forEach((x) => {
+          document.getElementById(`stratBtn-${x}`).className =
+            x === s
+              ? "strategy-btn active p-4 rounded-xl text-left"
+              : "strategy-btn bg-gray-700 p-4 rounded-xl text-left";
+        });
+        document
+          .getElementById("ultraFastStrategy")
+          .classList.toggle("hidden", s !== "ultraFast");
+        document
+          .getElementById("shockReversalStrategy")
+          .classList.toggle("hidden", s !== "shockReversal");
+        document
+          .getElementById("digitPulseStrategy")
+          .classList.toggle("hidden", s !== "digitPulse");
+        document
+          .getElementById("microBounceStrategy")
+          .classList.toggle("hidden", s !== "microBounce");
+        document
+          .getElementById("volatilityFadeStrategy")
+          .classList.toggle("hidden", s !== "volatilityFade");
+        showToast(`Strategy: ${s}`, "info");
+      }
+
+      function executeSingleTrade() {
+        if (!isConnected) {
+          showToast("Not connected", "error");
+          return;
+        }
+        if (prices.length < 5) {
+          showToast("Not enough data", "warning");
+          return;
+        }
+        if (isProcessing) {
+          showToast("Trade in progress", "warning");
+          return;
+        }
+        analyzeMarket();
+      }
+
+      selectStrategy("ultraFast");
+      updateWinRate();
+      updateCurrentStakeDisplay();
+      showToast("Welcome to EXTREME V5! ⚡", "success");
+    </script>
+  </body>
+</html>
