@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Factor Trader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .toast { animation: slideIn 0.3s ease; }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    .spin { animation: spin 1s linear infinite; }
+    .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white min-h-screen">
+  
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm"></div>
+  
+  <!-- Auth Modal -->
+  <div id="authModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+      <h2 class="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">🚀 All Factor Trader</h2>
+      <p class="text-gray-400 text-center mb-6">Enter passcode to access trading system</p>
+      <input type="password" id="authPass" placeholder="Enter Passcode" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-4 text-center text-2xl tracking-widest">
+      <button onclick="authenticate()" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 py-3 rounded-lg font-bold hover:opacity-90">UNLOCK</button>
+      <p class="text-xs text-gray-500 text-center mt-4">Default: 1234</p>
+    </div>
+  </div>
+  
+  <div id="mainApp" class="hidden p-2 sm:p-4">
+    <div class="max-w-7xl mx-auto space-y-3 sm:space-y-4">
+      
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-2xl">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <div>
+            <h1 class="text-2xl sm:text-4xl font-bold">🚀 ALL FACTOR TRADER</h1>
+            <p class="text-blue-100 text-xs sm:text-base mt-1">Advanced Multi-Strategy Deriv Trading System</p>
+          </div>
+          <div class="flex items-center gap-2 sm:gap-3 bg-black/30 px-3 sm:px-4 py-2 rounded-lg">
+            <span id="connDot" class="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500"></span>
+            <span id="connStatus" class="font-semibold text-sm sm:text-base">Disconnected</span>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <div class="bg-white/10 backdrop-blur rounded-lg sm:rounded-xl p-3 sm:p-4">
+            <p class="text-xs text-blue-200">Balance</p>
+            <p id="balance" class="text-lg sm:text-2xl font-bold">$0.00</p>
+          </div>
+          <div class="bg-white/10 backdrop-blur rounded-lg sm:rounded-xl p-3 sm:p-4">
+            <p class="text-xs text-purple-200">PnL</p>
+            <p id="totalPnL" class="text-lg sm:text-2xl font-bold">$0.00</p>
+          </div>
+          <div class="bg-white/10 backdrop-blur rounded-lg sm:rounded-xl p-3 sm:p-4">
+            <p class="text-xs text-green-200">Win Rate</p>
+            <p id="winRate" class="text-lg sm:text-2xl font-bold">0%</p>
+          </div>
+          <div class="bg-white/10 backdrop-blur rounded-lg sm:rounded-xl p-3 sm:p-4">
+            <p class="text-xs text-orange-200">Trades</p>
+            <p id="totalTrades" class="text-lg sm:text-2xl font-bold">0</p>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mt-3 sm:mt-4">
+          <div class="bg-black/20 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs">Price</p>
+            <p id="currentPrice" class="text-sm sm:text-lg font-bold text-blue-400">-</p>
+          </div>
+          <div class="bg-black/20 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs">Signal</p>
+            <p id="currentSignal" class="text-sm sm:text-lg font-bold text-yellow-400">WAIT</p>
+          </div>
+          <div class="bg-black/20 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs">Confidence</p>
+            <p id="confidence" class="text-sm sm:text-lg font-bold text-green-400">0%</p>
+          </div>
+          <div class="bg-black/20 p-2 sm:p-3 rounded-lg">
+            <p class="text-xs">Stake</p>
+            <p id="currentStake" class="text-sm sm:text-lg font-bold text-purple-400">$0</p>
+          </div>
+          <div class="bg-black/20 p-2 sm:p-3 rounded-lg col-span-2 sm:col-span-1">
+            <p class="text-xs">Status</p>
+            <p id="tradeStatus" class="text-sm sm:text-lg font-bold text-orange-400">IDLE</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Connection -->
+      <div class="bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+        <h2 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4">🔐 API Connection</h2>
+        <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <input type="password" id="apiToken" placeholder="Enter Deriv API Token" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base">
+          <button onclick="connect()" class="bg-blue-600 px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold hover:bg-blue-700 text-sm sm:text-base">Connect</button>
+          <button onclick="disconnect()" class="bg-red-600 px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold hover:bg-red-700 text-sm sm:text-base">Disconnect</button>
+        </div>
+      </div>
+      
+      <!-- Configuration -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        <div class="bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+          <h2 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4">📊 Market & Strategy</h2>
+          <select id="market" class="w-full bg-gray-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 mb-3 text-sm sm:text-base">
+            <option value="R_10">Volatility 10</option>
+            <option value="R_25">Volatility 25</option>
+            <option value="R_50">Volatility 50</option>
+            <option value="R_75">Volatility 75</option>
+            <option value="R_100">Volatility 100</option>
+            <option value="1HZ10V">Vol 10 (1s)</option>
+            <option value="1HZ25V">Vol 25 (1s)</option>
+            <option value="1HZ50V">Vol 50 (1s)</option>
+            <option value="BOOM500">Boom 500</option>
+            <option value="BOOM1000">Boom 1000</option>
+            <option value="CRASH500">Crash 500</option>
+            <option value="CRASH1000">Crash 1000</option>
+          </select>
+          <select id="contractType" class="w-full bg-gray-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 mb-3 text-sm sm:text-base">
+            <option value="CALL">Rise/Fall</option>
+            <option value="CALLE">Rise Equals</option>
+            <option value="PUTE">Fall Equals</option>
+            <option value="DIGITEVEN">Even/Odd</option>
+            <option value="DIGITMATCH">Matches/Differs</option>
+            <option value="DIGITOVER">Over/Under</option>
+          </select>
+          <select id="strategy" class="w-full bg-gray-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base">
+            <optgroup label="MA Strategies - Rise/Fall">
+              <option value="MA-1">MA-1: Dual MA Crossover</option>
+              <option value="MA-2">MA-2: MA Pullback Bounce</option>
+              <option value="MA-3">MA-3: MA Squeeze Breakout</option>
+              <option value="MA-4">MA-4: MA Slope Acceleration</option>
+              <option value="MA-5">MA-5: Golden/Death Cross</option>
+            </optgroup>
+            <optgroup label="MA Strategies - Equals">
+              <option value="MA-E1">MA-E1: MA Band Touch</option>
+              <option value="MA-E2">MA-E2: MA Fibonacci Extension</option>
+              <option value="MA-E3">MA-E3: Parallel Channel</option>
+              <option value="MA-E4">MA-E4: MA Reversal Retest</option>
+              <option value="MA-E5">MA-E5: Volatility Distance</option>
+            </optgroup>
+            <optgroup label="MACD Strategies - Rise/Fall">
+              <option value="MACD-1">MACD-1: Zero Line Cross</option>
+              <option value="MACD-2">MACD-2: Signal Line Cross</option>
+              <option value="MACD-3">MACD-3: Histogram Momentum</option>
+              <option value="MACD-4">MACD-4: Divergence Play</option>
+              <option value="MACD-5">MACD-5: MACD + Trend Combo</option>
+            </optgroup>
+            <optgroup label="MACD Strategies - Equals">
+              <option value="MACD-E1">MACD-E1: Extremes Touch</option>
+              <option value="MACD-E2">MACD-E2: Signal Retouch</option>
+              <option value="MACD-E3">MACD-E3: Histogram Targets</option>
+              <option value="MACD-E4">MACD-E4: Convergence Bands</option>
+              <option value="MACD-E5">MACD-E5: Multi-Timeframe</option>
+            </optgroup>
+          </select>
+        </div>
+        
+        <div class="bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+          <h2 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4">⚙️ Risk Management</h2>
+          <div class="grid grid-cols-2 gap-2 sm:gap-3">
+            <div>
+              <label class="text-xs sm:text-sm">Stake ($)</label>
+              <input type="number" id="stake" value="1" min="0.35" step="0.1" class="w-full bg-gray-700 rounded px-2 sm:px-3 py-2 mt-1 text-sm sm:text-base">
+            </div>
+            <div>
+              <label class="text-xs sm:text-sm">Duration (ticks)</label>
+              <input type="number" id="duration" value="5" min="1" max="10" class="w-full bg-gray-700 rounded px-2 sm:px-3 py-2 mt-1 text-sm sm:text-base">
+            </div>
+            <div>
+              <label class="text-xs sm:text-sm">Max Loss ($)</label>
+              <input type="number" id="maxLoss" value="50" class="w-full bg-gray-700 rounded px-2 sm:px-3 py-2 mt-1 text-sm sm:text-base">
+            </div>
+            <div>
+              <label class="text-xs sm:text-sm">Max Profit ($)</label>
+              <input type="number" id="maxProfit" value="100" class="w-full bg-gray-700 rounded px-2 sm:px-3 py-2 mt-1 text-sm sm:text-base">
+            </div>
+            <div>
+              <label class="text-xs sm:text-sm">Min Confidence (%)</label>
+              <input type="number" id="minConfidence" value="60" min="0" max="100" class="w-full bg-gray-700 rounded px-2 sm:px-3 py-2 mt-1 text-sm sm:text-base">
+            </div>
+            <div>
+              <label class="text-xs sm:text-sm">Trade Delay (s)</label>
+              <input type="number" id="tradeDelay" value="3" min="1" max="30" class="w-full bg-gray-700 rounded px-2 sm:px-3 py-2 mt-1 text-sm sm:text-base">
+            </div>
+          </div>
+          <label class="flex items-center gap-2 mt-3 text-sm sm:text-base">
+            <input type="checkbox" id="martingale" class="w-4 h-4 sm:w-5 sm:h-5">
+            <span>Enable Martingale (3 steps max)</span>
+          </label>
+        </div>
+      </div>
+      
+      <!-- Controls -->
+      <div class="bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <button onclick="startTrading()" id="startBtn" class="bg-green-600 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-lg hover:bg-green-700">
+            🚀 START
+          </button>
+          <button onclick="stopTrading()" id="stopBtn" disabled class="bg-red-600 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-lg opacity-50">
+            ⛔ STOP
+          </button>
+          <button onclick="singleTrade()" class="bg-blue-600 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-lg hover:bg-blue-700">
+            ⚡ SINGLE
+          </button>
+          <button onclick="reset()" class="bg-yellow-600 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-lg hover:bg-yellow-700">
+            🔄 RESET
+          </button>
+        </div>
+      </div>
+      
+      <!-- History -->
+      <div class="bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <h2 class="text-lg sm:text-xl font-bold">📜 Trade History</h2>
+          <button onclick="exportCSV()" class="bg-purple-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 text-sm sm:text-base">📥 Export</button>
+        </div>
+        <div class="overflow-x-auto -mx-4 sm:mx-0">
+          <table class="w-full text-xs sm:text-sm min-w-[600px]">
+            <thead class="bg-gray-700"><tr>
+              <th class="p-2 sm:p-3 text-left">Time</th>
+              <th class="p-2 sm:p-3 text-left">Strategy</th>
+              <th class="p-2 sm:p-3 text-left">Type</th>
+              <th class="p-2 sm:p-3 text-left">Stake</th>
+              <th class="p-2 sm:p-3 text-left">Result</th>
+              <th class="p-2 sm:p-3 text-left">PnL</th>
+            </tr></thead>
+            <tbody id="history"><tr><td colspan="6" class="p-6 sm:p-8 text-center text-gray-500">No trades yet</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  
+  <script>
+    // ============= GLOBAL STATE =============
+    let ws, isConnected = false, isTrading = false, isProcessing = false;
+    let balance = 0, totalPnL = 0, totalTrades = 0, totalWins = 0;
+    let currentStake = 1, martingaleStep = 0;
+    let priceHistory = [], tickData = [];
+    let tradeHistory = [];
+    let lastTradeTime = 0;
+    let subscriptionId = null;
+    let activeContractId = null;
+    
+    // ============= AUTHENTICATION =============
+    function authenticate() {
+      const pass = document.getElementById('authPass').value;
+      if (pass === '1234' || pass === 'admin') {
+        document.getElementById('authModal').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
+        showToast('Authentication successful!', 'success');
+      } else {
+        showToast('Invalid passcode', 'error');
+      }
+    }
+    
+    document.getElementById('authPass').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') authenticate();
+    });
+    
+    // ============= TOAST NOTIFICATIONS =============
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast px-4 py-3 rounded-lg shadow-2xl text-sm sm:text-base ${
+        type === 'success' ? 'bg-green-600' : 
+        type === 'error' ? 'bg-red-600' : 
+        type === 'warning' ? 'bg-yellow-600' : 'bg-blue-600'
+      }`;
+      toast.textContent = message;
+      document.getElementById('toastContainer').appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    }
+    
+    // ============= UI UPDATES =============
+    function updateUI() {
+      document.getElementById('balance').textContent = `$${balance.toFixed(2)}`;
+      document.getElementById('totalPnL').textContent = `$${totalPnL.toFixed(2)}`;
+      document.getElementById('totalPnL').className = `text-lg sm:text-2xl font-bold ${totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`;
+      document.getElementById('winRate').textContent = totalTrades > 0 ? `${((totalWins/totalTrades)*100).toFixed(1)}%` : '0%';
+      document.getElementById('totalTrades').textContent = totalTrades;
+      document.getElementById('currentStake').textContent = `$${currentStake.toFixed(2)}`;
+    }
+    
+    function updateConnectionStatus(connected) {
+      isConnected = connected;
+      document.getElementById('connStatus').textContent = connected ? 'Connected' : 'Disconnected';
+      document.getElementById('connDot').className = `w-2 h-2 sm:w-3 sm:h-3 rounded-full ${connected ? 'bg-green-500 pulse' : 'bg-red-500'}`;
+    }
+    
+    function updateTradeStatus(status) {
+      document.getElementById('tradeStatus').textContent = status;
+      const colors = {
+        'IDLE': 'text-gray-400',
+        'ANALYZING': 'text-yellow-400',
+        'SIGNAL': 'text-green-400',
+        'TRADING': 'text-blue-400 pulse',
+        'WAITING': 'text-orange-400'
+      };
+      document.getElementById('tradeStatus').className = `text-sm sm:text-lg font-bold ${colors[status] || 'text-gray-400'}`;
+    }
+    
+    // ============= TECHNICAL INDICATORS =============
+    function calculateEMA(data, period) {
+      if (data.length < period) return null;
+      const k = 2 / (period + 1);
+      let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      for (let i = period; i < data.length; i++) {
+        ema = data[i] * k + ema * (1 - k);
+      }
+      return ema;
+    }
+    
+    function calculateSMA(data, period) {
+      if (data.length < period) return null;
+      return data.slice(-period).reduce((a, b) => a + b, 0) / period;
+    }
+    
+    function calculateMACD(data, fast = 12, slow = 26, signal = 9) {
+      if (data.length < slow) return null;
+      
+      const emaFast = calculateEMAArray(data, fast);
+      const emaSlow = calculateEMAArray(data, slow);
+      const macdLine = emaFast.map((v, i) => v - emaSlow[i]);
+      const signalLine = calculateEMAArray(macdLine, signal);
+      const histogram = macdLine.map((v, i) => v - signalLine[i]);
+      
+      return {
+        macd: macdLine[macdLine.length - 1],
+        signal: signalLine[signalLine.length - 1],
+        histogram: histogram[histogram.length - 1],
+        macdArray: macdLine,
+        signalArray: signalLine
+      };
+    }
+    
+    function calculateEMAArray(data, period) {
+      const k = 2 / (period + 1);
+      const emaArray = [];
+      let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      emaArray.push(ema);
+      
+      for (let i = period; i < data.length; i++) {
+        ema = data[i] * k + ema * (1 - k);
+        emaArray.push(ema);
+      }
+      return emaArray;
+    }
+    
+    function calculateRSI(data, period = 14) {
+      if (data.length < period + 1) return 50;
+      
+      let gains = 0, losses = 0;
+      for (let i = data.length - period; i < data.length; i++) {
+        const change = data[i] - data[i - 1];
+        if (change > 0) gains += change;
+        else losses -= change;
+      }
+      
+      const avgGain = gains / period;
+      const avgLoss = losses / period;
+      const rs = avgGain / (avgLoss || 0.0001);
+      return 100 - (100 / (1 + rs));
+    }
+    
+    function calculateATR(period = 14) {
+      if (priceHistory.length < period + 1) return 0.001;
+      let sum = 0;
+      for (let i = priceHistory.length - period; i < priceHistory.length; i++) {
+        if (i > 0) sum += Math.abs(priceHistory[i] - priceHistory[i - 1]);
+      }
+      return sum / period;
+    }
+    
+    // ============= STRATEGY IMPLEMENTATIONS =============
+    
+    // MA Strategy 1: Dual MA Crossover
+    function strategyMA1() {
+      if (priceHistory.length < 20) return null;
+      
+      const fastMA = calculateEMA(priceHistory, 5);
+      const slowMA = calculateEMA(priceHistory, 15);
+      const prevFastMA = calculateEMA(priceHistory.slice(0, -1), 5);
+      const prevSlowMA = calculateEMA(priceHistory.slice(0, -1), 15);
+      const currentPrice = priceHistory[priceHistory.length - 1];
+      
+      if (!fastMA || !slowMA || !prevFastMA || !prevSlowMA) return null;
+      
+      // Bullish crossover
+      if (prevFastMA <= prevSlowMA && fastMA > slowMA && currentPrice > fastMA) {
+        return {
+          signal: 'CALL',
+          confidence: 0.7,
+          expiry: 6,
+          reason: 'MA Bullish Crossover'
+        };
+      }
+      
+      // Bearish crossover
+      if (prevFastMA >= prevSlowMA && fastMA < slowMA && currentPrice < fastMA) {
+        return {
+          signal: 'PUT',
+          confidence: 0.7,
+          expiry: 6,
+          reason: 'MA Bearish Crossover'
+        };
+      }
+      
+      return null;
+    }
+    
+    // MA Strategy 2: MA Pullback Bounce
+    function strategyMA2() {
+      if (priceHistory.length < 20) return null;
+      
+      const slowMA = calculateEMA(priceHistory, 15);
+      const currentPrice = priceHistory[priceHistory.length - 1];
+      const prevPrice = priceHistory[priceHistory.length - 2];
+      const rsi = calculateRSI(priceHistory, 3);
+      
+      if (!slowMA) return null;
+      
+      const distance = Math.abs(currentPrice - slowMA) / slowMA;
+      
+      // Bullish bounce
+      if (distance < 0.001 && currentPrice > prevPrice && rsi > 50) {
+        return {
+          signal: 'CALL',
+          confidence: 0.65,
+          expiry: 4,
+          reason: 'MA Bullish Bounce'
+        };
+      }
+      
+      // Bearish bounce
+      if (distance < 0.001 && currentPrice < prevPrice && rsi < 50) {
+        return {
+          signal: 'PUT',
+          confidence: 0.65,
+          expiry: 4,
+          reason: 'MA Bearish Bounce'
+        };
+      }
+      
+      return null;
+    }
+    
+    // MA Strategy 3: MA Squeeze Breakout
+    function strategyMA3() {
+      if (priceHistory.length < 30) return null;
+      
+      const fastMA = calculateEMA(priceHistory, 5);
+      const slowMA = calculateEMA(priceHistory, 15);
+      const currentPrice = priceHistory[priceHistory.length - 1];
+      
+      if (!fastMA || !slowMA) return null;
+      
+      const distance = Math.abs(fastMA - slowMA) / currentPrice;
+      const atr = calculateATR(14);
+      const tickRange = Math.abs(priceHistory[priceHistory.length - 1] - priceHistory[priceHistory.length - 2]);
+      
+      // Squeeze detected
+      if (distance < 0.0015) {
+        // Breakout up
+        if (currentPrice > Math.max(fastMA, slowMA) && tickRange > atr * 0.5) {
+          return {
+            signal: 'CALL',
+            confidence: 0.75,
+            expiry: 9,
+            reason: 'MA Squeeze Breakout Up'
+          };
+        }
+        
+        // Breakout down
+        if (currentPrice < Math.min(fastMA, slowMA) && tickRange > atr * 0.5) {
+          return {
+            signal: 'PUT',
+            confidence: 0.75,
+            expiry: 9,
+            reason: 'MA Squeeze Breakout Down'
+          };
+        }
+      }
+      
+      return null;
+    }
+    
+    // MACD Strategy 1: Zero Line Cross
+    function strategyMACD1() {
+      if (priceHistory.length < 50) return null;
+      
+      const macd = calculateMACD(priceHistory);
+      if (!macd) return null;
+      
+      const prevMACD = calculateMACD(priceHistory.slice(0, -1));
+      if (!prevMACD) return null;
+      
+      // Bullish zero cross
+      if (prevMACD.macd <= 0 && macd.macd > 0 && macd.histogram > 0) {
+        return {
+          signal: 'CALL',
+          confidence: 0.8,
+          expiry: 12,
+          reason: 'MACD Zero Cross Up'
+        };
+      }
+      
+      // Bearish zero cross
+      if (prevMACD.macd >= 0 && macd.macd < 0 && macd.histogram < 0) {
+        return {
+          signal: 'PUT',
+          confidence: 0.8,
+          expiry: 12,
+          reason: 'MACD Zero Cross Down'
+        };
+      }
+      
+      return null;
+    }
+    
+    // MACD Strategy 2: Signal Line Cross
+    function strategyMACD2() {
+      if (priceHistory.length < 50) return null;
+      
+      const macd = calculateMACD(priceHistory);
+      if (!macd) return null;
+      
+      const prevMACD = calculateMACD(priceHistory.slice(0, -1));
+      if (!prevMACD) return null;
+      
+      const zeroDistance = Math.abs(macd.macd);
+      
+      // Bullish signal cross (away from zero)
+      if (prevMACD.macd <= prevMACD.signal && macd.macd > macd.signal && zeroDistance > 0.02) {
+        return {
+          signal: 'CALL',
+          confidence: 0.7,
+          expiry: 7,
+          reason: 'MACD Signal Cross Up'
+        };
+      }
+      
+      // Bearish signal cross (away from zero)
+      if (prevMACD.macd >= prevMACD.signal && macd.macd < macd.signal && zeroDistance > 0.02) {
+        return {
+          signal: 'PUT',
+          confidence: 0.7,
+          expiry: 7,
+          reason: 'MACD Signal Cross Down'
+        };
+      }
+      
+      return null;
+    }
+    
+    // MACD Strategy 3: Histogram Momentum
+    function strategyMACD3() {
+      if (priceHistory.length < 50) return null;
+      
+      const macd = calculateMACD(priceHistory);
+      if (!macd || !macd.macdArray || macd.macdArray.length < 4) return null;
+      
+      const histArray = macd.macdArray.slice(-4).map((m, i) => m - macd.signalArray.slice(-4)[i]);
+      
+      // Increasing green bars
+      if (histArray.every((h, i) => i === 0 || h > histArray[i - 1]) && histArray[histArray.length - 1] > 0) {
+        return {
+          signal: 'CALL',
+          confidence: 0.65,
+          expiry: 4,
+          reason: 'MACD Histogram Momentum Up'
+        };
+      }
+      
+      // Increasing red bars
+      if (histArray.every((h, i) => i === 0 || h < histArray[i - 1]) && histArray[histArray.length - 1] < 0) {
+        return {
+          signal: 'PUT',
+          confidence: 0.65,
+          expiry: 4,
+          reason: 'MACD Histogram Momentum Down'
+        };
+      }
+      
+      return null;
+    }
+    
+    // ============= STRATEGY ROUTER =============
+    function analyzeMarket() {
+      if (priceHistory.length < 10) return null;
+      
+      const strategy = document.getElementById('strategy').value;
+      let result = null;
+      
+      switch(strategy) {
+        case 'MA-1': result = strategyMA1(); break;
+        case 'MA-2': result = strategyMA2(); break;
+        case 'MA-3': result = strategyMA3(); break;
+        case 'MACD-1': result = strategyMACD1(); break;
+        case 'MACD-2': result = strategyMACD2(); break;
+        case 'MACD-3': result = strategyMACD3(); break;
+        default: result = strategyMA1();
+      }
+      
+      if (result) {
+        document.getElementById('currentSignal').textContent = result.signal;
+        document.getElementById('confidence').textContent = `${(result.confidence * 100).toFixed(0)}%`;
+        
+        updateTradeStatus('SIGNAL');
+        
+        // Check if conditions met for auto-trade
+        const minConf = parseFloat(document.getElementById('minConfidence').value) / 100;
+        if (isTrading && !isProcessing && result.confidence >= minConf) {
+          const now = Date.now();
+          const delay = parseFloat(document.getElementById('tradeDelay').value) * 1000;
+          
+          if (now - lastTradeTime >= delay) {
+            executeTrade(result);
+          }
+        }
+      } else {
+        document.getElementById('currentSignal').textContent = 'WAIT';
+        document.getElementById('confidence').textContent = '0%';
+        if (isTrading && !isProcessing) {
+          updateTradeStatus('ANALYZING');
+        }
+      }
+      
+      return result;
+    }
+    
+    // ============= TRADE EXECUTION =============
+    function executeTrade(signal) {
+      if (isProcessing || !isConnected) return;
+      
+      isProcessing = true;
+      updateTradeStatus('TRADING');
+      
+      const martingaleEnabled = document.getElementById('martingale').checked;
+      const baseStake = parseFloat(document.getElementById('stake').value);
+      currentStake = martingaleEnabled && martingaleStep > 0 ? currentStake : baseStake;
+      
+      const contractType = document.getElementById('contractType').value;
+      let tradeType = signal.signal;
+      
+      // Map signal to contract type
+      if (contractType === 'CALLE' || contractType === 'PUTE') {
+        tradeType = signal.signal === 'CALL' ? 'CALLE' : 'PUTE';
+      }
+      
+      const proposal = {
+        proposal: 1,
+        amount: currentStake,
+        basis: 'stake',
+        contract_type: tradeType,
+        currency: 'USD',
+        duration: signal.expiry || parseInt(document.getElementById('duration').value),
+        duration_unit: 't',
+        symbol: document.getElementById('market').value
+      };
+      
+      showToast(`Placing ${tradeType} trade - ${currentStake.toFixed(2)}`, 'info');
+      ws.send(JSON.stringify(proposal));
+    }
+    
+    // ============= DERIV API CONNECTION =============
+    function connect() {
+      const token = document.getElementById('apiToken').value.trim();
+      if (!token) {
+        showToast('Please enter API token', 'error');
+        return;
+      }
+      
+      ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+      
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ authorize: token }));
+        showToast('Connecting...', 'info');
+      };
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.error) {
+          showToast(data.error.message, 'error');
+          updateConnectionStatus(false);
+          return;
+        }
+        
+        handleWebSocketMessage(data);
+      };
+      
+      ws.onerror = () => {
+        showToast('Connection error', 'error');
+        updateConnectionStatus(false);
+      };
+      
+      ws.onclose = () => {
+        updateConnectionStatus(false);
+        isTrading = false;
+        showToast('Disconnected from Deriv', 'warning');
+      };
+    }
+    
+    function handleWebSocketMessage(data) {
+      // Authorization response
+      if (data.msg_type === 'authorize' && data.authorize) {
+        balance = parseFloat(data.authorize.balance);
+        updateConnectionStatus(true);
+        updateUI();
+        showToast('Connected successfully!', 'success');
+        
+        // Subscribe to ticks
+        const market = document.getElementById('market').value;
+        ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+        ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+      }
+      
+      // Tick data
+      else if (data.msg_type === 'tick') {
+        const price = parseFloat(data.tick.quote);
+        priceHistory.push(price);
+        if (priceHistory.length > 200) priceHistory.shift();
+        
+        tickData.push({
+          price: price,
+          time: data.tick.epoch
+        });
+        if (tickData.length > 1000) tickData.shift();
+        
+        document.getElementById('currentPrice').textContent = price.toFixed(5);
+        
+        if (priceHistory.length >= 10 && !isProcessing) {
+          analyzeMarket();
+        }
+      }
+      
+      // Proposal response
+      else if (data.msg_type === 'proposal' && data.proposal) {
+        ws.send(JSON.stringify({
+          buy: data.proposal.id,
+          price: data.proposal.ask_price
+        }));
+      }
+      
+      // Buy response
+      else if (data.msg_type === 'buy' && data.buy) {
+        activeContractId = data.buy.contract_id;
+        ws.send(JSON.stringify({
+          proposal_open_contract: 1,
+          contract_id: data.buy.contract_id,
+          subscribe: 1
+        }));
+        lastTradeTime = Date.now();
+      }
+      
+      // Contract update
+      else if (data.msg_type === 'proposal_open_contract') {
+        const contract = data.proposal_open_contract;
+        
+        if (contract.status === 'sold' || contract.is_sold) {
+          handleContractResult(contract);
+        }
+      }
+      
+      // Balance update
+      else if (data.msg_type === 'balance') {
+        balance = parseFloat(data.balance.balance);
+        updateUI();
+      }
+    }
+    
+    function handleContractResult(contract) {
+      const profit = parseFloat(contract.profit);
+      const isWin = profit > 0;
+      
+      totalPnL += profit;
+      totalTrades++;
+      if (isWin) totalWins++;
+      
+      // Record trade
+      tradeHistory.unshift({
+        time: new Date().toLocaleTimeString(),
+        strategy: document.getElementById('strategy').value,
+        type: contract.contract_type,
+        stake: parseFloat(contract.buy_price),
+        result: isWin ? 'Win' : 'Loss',
+        pnl: profit
+      });
+      
+      // Update martingale
+      const martingaleEnabled = document.getElementById('martingale').checked;
+      if (isWin) {
+        showToast(`✅ WIN! +${profit.toFixed(2)}`, 'success');
+        martingaleStep = 0;
+        currentStake = parseFloat(document.getElementById('stake').value);
+      } else {
+        showToast(`❌ LOSS: ${profit.toFixed(2)}`, 'error');
+        if (martingaleEnabled && martingaleStep < 3) {
+          martingaleStep++;
+          currentStake *= 2;
+          showToast(`Martingale Step ${martingaleStep}: ${currentStake.toFixed(2)}`, 'warning');
+        } else {
+          martingaleStep = 0;
+          currentStake = parseFloat(document.getElementById('stake').value);
+        }
+      }
+      
+      updateHistory();
+      updateUI();
+      isProcessing = false;
+      activeContractId = null;
+      
+      if (isTrading) {
+        updateTradeStatus('ANALYZING');
+      } else {
+        updateTradeStatus('IDLE');
+      }
+      
+      // Check stop conditions
+      const maxLoss = parseFloat(document.getElementById('maxLoss').value);
+      const maxProfit = parseFloat(document.getElementById('maxProfit').value);
+      
+      if (Math.abs(totalPnL) >= maxLoss && totalPnL < 0) {
+        stopTrading();
+        showToast('⛔ Max loss reached!', 'error');
+      }
+      
+      if (totalPnL >= maxProfit) {
+        stopTrading();
+        showToast('🎉 Profit target reached!', 'success');
+      }
+    }
+    
+    function disconnect() {
+      if (ws) {
+        ws.close();
+        isTrading = false;
+        isProcessing = false;
+        updateConnectionStatus(false);
+        updateTradeStatus('IDLE');
+      }
+    }
+    
+    // ============= TRADING CONTROLS =============
+    function startTrading() {
+      if (!isConnected) {
+        showToast('Please connect first', 'error');
+        return;
+      }
+      
+      if (priceHistory.length < 10) {
+        showToast('Waiting for market data...', 'warning');
+        return;
+      }
+      
+      isTrading = true;
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      updateTradeStatus('ANALYZING');
+      showToast('🚀 Auto-trading started!', 'success');
+    }
+    
+    function stopTrading() {
+      isTrading = false;
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+      updateTradeStatus('IDLE');
+      showToast('⛔ Auto-trading stopped', 'info');
+    }
+    
+    function singleTrade() {
+      if (!isConnected) {
+        showToast('Please connect first', 'error');
+        return;
+      }
+      
+      if (isProcessing) {
+        showToast('Trade in progress...', 'warning');
+        return;
+      }
+      
+      const signal = analyzeMarket();
+      if (signal && signal.confidence >= 0.5) {
+        executeTrade(signal);
+      } else {
+        showToast('No valid signal at the moment', 'warning');
+      }
+    }
+    
+    function reset() {
+      if (!confirm('Reset all session data? This will clear PnL and history.')) return;
+      
+      totalPnL = 0;
+      totalTrades = 0;
+      totalWins = 0;
+      martingaleStep = 0;
+      currentStake = parseFloat(document.getElementById('stake').value);
+      priceHistory = [];
+      tickData = [];
+      tradeHistory = [];
+      
+      document.getElementById('history').innerHTML = '<tr><td colspan="6" class="p-6 sm:p-8 text-center text-gray-500">No trades yet</td></tr>';
+      document.getElementById('currentSignal').textContent = 'WAIT';
+      document.getElementById('confidence').textContent = '0%';
+      
+      updateUI();
+      showToast('Session reset!', 'success');
+    }
+    
+    // ============= HISTORY MANAGEMENT =============
+    function updateHistory() {
+      const tbody = document.getElementById('history');
+      if (tradeHistory.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 sm:p-8 text-center text-gray-500">No trades yet</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = tradeHistory.slice(0, 50).map(trade => `
+        <tr class="hover:bg-gray-700 border-b border-gray-700">
+          <td class="p-2 sm:p-3">${trade.time}</td>
+          <td class="p-2 sm:p-3"><span class="text-xs bg-gray-700 px-2 py-1 rounded">${trade.strategy}</span></td>
+          <td class="p-2 sm:p-3">${trade.type}</td>
+          <td class="p-2 sm:p-3">${trade.stake.toFixed(2)}</td>
+          <td class="p-2 sm:p-3">
+            <span class="px-2 sm:px-3 py-1 rounded-full text-xs ${trade.result === 'Win' ? 'bg-green-600' : 'bg-red-600'}">
+              ${trade.result}
+            </span>
+          </td>
+          <td class="p-2 sm:p-3 font-bold ${trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}">
+            ${trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+          </td>
+        </tr>
+      `).join('');
+    }
+    
+    function exportCSV() {
+      if (tradeHistory.length === 0) {
+        showToast('No trades to export', 'warning');
+        return;
+      }
+      
+      const headers = ['Time', 'Strategy', 'Type', 'Stake', 'Result', 'PnL'];
+      const rows = tradeHistory.map(t => [
+        t.time,
+        t.strategy,
+        t.type,
+        t.stake.toFixed(2),
+        t.result,
+        t.pnl.toFixed(2)
+      ]);
+      
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `trades_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      showToast('📥 History exported!', 'success');
+    }
+    
+    // ============= MARKET CHANGE HANDLER =============
+    document.getElementById('market').addEventListener('change', () => {
+      if (isConnected && ws) {
+        const market = document.getElementById('market').value;
+        ws.send(JSON.stringify({ forget_all: 'ticks' }));
+        ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+        priceHistory = [];
+        tickData = [];
+        showToast(`Switched to ${market}`, 'info');
+      }
+    });
+    
+    // ============= INITIALIZE =============
+    updateUI();
+    updateTradeStatus('IDLE');
+  </script>
+</body>
+</html>

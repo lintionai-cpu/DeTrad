@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantumFX Pro - Advanced Trading Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+        }
+        .card-glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .strategy-active { box-shadow: 0 0 0 2px #10b981; animation: pulse-border 2s infinite; }
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 2px #10b981; }
+            50% { box-shadow: 0 0 0 4px #10b981; }
+        }
+        .signal-buy { background: rgba(16, 185, 129, 0.2); border-left: 4px solid #10b981; }
+        .signal-sell { background: rgba(239, 68, 68, 0.2); border-left: 4px solid #ef4444; }
+        .signal-neutral { background: rgba(59, 130, 246, 0.2); border-left: 4px solid #3b82f6; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.5); }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
+        .price-flash { animation: flash 0.3s; }
+        @keyframes flash {
+            0%, 100% { background-color: transparent; }
+            50% { background-color: rgba(59, 130, 246, 0.3); }
+        }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div id="authModal" class="modal show">
+        <div class="bg-gray-800 rounded-xl p-8 max-w-md w-full mx-4 card-glass">
+            <div class="text-center mb-6">
+                <div class="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-lock text-2xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-2">Connect to Deriv</h3>
+                <p class="text-gray-400">Enter API token to start</p>
+            </div>
+            <div class="space-y-4">
+                <input type="password" id="apiTokenInput" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3" placeholder="Deriv API Token">
+                <div class="text-sm text-gray-400">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <a href="https://app.deriv.com/account/api-token" target="_blank" class="text-blue-400">Get token</a>
+                </div>
+                <button onclick="connectLive()" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-medium">
+                    <i class="fas fa-plug mr-2"></i>Connect
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="strategyModal" class="modal">
+        <div class="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4 card-glass max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between mb-4">
+                <h3 class="text-xl font-bold" id="modalTitle">Strategy Settings</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <header class="sticky top-0 z-50 card-glass">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 p-2 rounded-lg">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">Quantum<span class="text-blue-400">FX</span> <span class="text-xs bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-1 rounded">PRO</span></h1>
+                    <div class="text-xs" id="status"><span class="text-red-400">● Disconnected</span></div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm">
+                    <div class="text-gray-400">Balance</div>
+                    <div class="font-bold" id="balance">$0.00</div>
+                </div>
+                <button id="connectBtn" onclick="showAuthModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
+                    <i class="fas fa-plug mr-2"></i>Connect
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-3 space-y-4">
+                <section class="card-glass rounded-xl p-4">
+                    <h3 class="font-bold mb-3 flex items-center text-sm">
+                        <i class="fas fa-cog mr-2 text-blue-400"></i> Trade Setup
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs mb-1">Market</label>
+                            <select id="market" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1">Price</label>
+                            <div class="bg-gray-800 border border-gray-700 rounded px-2 py-2 font-mono" id="price">--</div>
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1">Stake ($)</label>
+                            <input type="number" id="amount" value="10" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm" min="1" step="0.01">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs mb-1">Duration</label>
+                                <input type="number" id="duration" value="5" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm" min="1">
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1">Unit</label>
+                                <select id="unit" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm">
+                                    <option value="t">Ticks</option>
+                                    <option value="s">Seconds</option>
+                                    <option value="m">Minutes</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="trade('CALL')" class="bg-green-600 hover:bg-green-700 py-2 rounded font-bold text-sm">
+                                <i class="fas fa-arrow-up"></i> CALL
+                            </button>
+                            <button onclick="trade('PUT')" class="bg-red-600 hover:bg-red-700 py-2 rounded font-bold text-sm">
+                                <i class="fas fa-arrow-down"></i> PUT
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1">
+                            <button onclick="setAmt(5)" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs">$5</button>
+                            <button onclick="setAmt(10)" class="px-2 py-1 bg-blue-600 rounded text-xs">$10</button>
+                            <button onclick="setAmt(25)" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs">$25</button>
+                            <button onclick="setAmt(50)" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs">$50</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card-glass rounded-xl p-4">
+                    <h3 class="font-bold mb-3 flex items-center text-sm">
+                        <i class="fas fa-shield-alt mr-2 text-yellow-400"></i> AI Risk Manager
+                    </h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-xs">Max Stake</span>
+                            <input type="number" id="maxStake" value="50" class="w-20 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs" min="1">
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-xs">Max Loss/Day</span>
+                            <input type="number" id="maxLoss" value="100" class="w-20 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs" min="1">
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-xs">Win Rate Target</span>
+                            <input type="number" id="winTarget" value="60" class="w-20 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs" max="100">
+                        </div>
+                        <div class="pt-2 border-t border-gray-700">
+                            <div class="flex justify-between text-xs">
+                                <span class="font-bold" id="riskLevel">Low Risk</span>
+                                <span class="text-green-400" id="riskStatus">Safe</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="lg:col-span-6 space-y-4">
+                <section class="card-glass rounded-xl p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold flex items-center text-sm">
+                            <i class="fas fa-chart-bar mr-2 text-purple-400"></i> Indicators
+                        </h3>
+                        <button onclick="toggleSettings()" class="text-xs text-blue-400">
+                            <i class="fas fa-cog"></i> Settings
+                        </button>
+                    </div>
+                    <div id="settings" class="hidden mb-3 p-3 bg-gray-800/50 rounded space-y-2">
+                        <div class="grid grid-cols-3 gap-2 text-xs">
+                            <div>
+                                <label class="block mb-1">RSI Period</label>
+                                <input type="number" id="rsiPeriod" value="14" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1" min="2">
+                            </div>
+                            <div>
+                                <label class="block mb-1">MACD Fast</label>
+                                <input type="number" id="macdFast" value="12" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1" min="2">
+                            </div>
+                            <div>
+                                <label class="block mb-1">MACD Slow</label>
+                                <input type="number" id="macdSlow" value="26" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1" min="2">
+                            </div>
+                            <div>
+                                <label class="block mb-1">BB Period</label>
+                                <input type="number" id="bbPeriod" value="20" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1" min="2">
+                            </div>
+                            <div>
+                                <label class="block mb-1">EMA Period</label>
+                                <input type="number" id="emaPeriod" value="20" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1" min="2">
+                            </div>
+                            <div>
+                                <label class="block mb-1">SMA Period</label>
+                                <input type="number" id="smaPeriod" value="20" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1" min="2">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="indicators" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+                </section>
+
+                <section class="card-glass rounded-xl p-4">
+                    <h3 class="font-bold mb-3 flex items-center text-sm">
+                        <i class="fas fa-signal mr-2 text-green-400"></i> Live Signals
+                    </h3>
+                    <div id="signals" class="space-y-2 max-h-52 overflow-y-auto"></div>
+                </section>
+
+                <section class="card-glass rounded-xl p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold flex items-center text-sm">
+                            <i class="fas fa-robot mr-2 text-blue-400"></i> Strategies
+                        </h3>
+                        <label class="flex items-center space-x-2 text-xs">
+                            <span>Auto Trade</span>
+                            <input type="checkbox" id="autoTrade" class="w-10 h-5 bg-gray-700 rounded-full appearance-none cursor-pointer checked:bg-green-600 relative before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition-all checked:before:left-5">
+                        </label>
+                    </div>
+                    <div id="strategies" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+                </section>
+            </div>
+
+            <div class="lg:col-span-3 space-y-4">
+                <section class="card-glass rounded-xl p-4">
+                    <h3 class="font-bold mb-3 flex items-center text-sm">
+                        <i class="fas fa-pulse mr-2 text-red-400"></i> Active <span class="ml-2 text-xs bg-red-900/50 px-2 py-0.5 rounded" id="activeCount">0</span>
+                    </h3>
+                    <div id="active" class="space-y-2 max-h-72 overflow-y-auto">
+                        <div class="text-center text-gray-500 py-8 text-xs">No active trades</div>
+                    </div>
+                </section>
+
+                <section class="card-glass rounded-xl p-4">
+                    <h3 class="font-bold mb-3 flex items-center text-sm">
+                        <i class="fas fa-history mr-2 text-blue-400"></i> History
+                    </h3>
+                    <div id="history" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-center text-gray-500 py-8 text-xs">No trades yet</div>
+                    </div>
+                </section>
+
+                <section class="card-glass rounded-xl p-3">
+                    <h3 class="text-xs font-bold mb-2">Today's Stats</h3>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Trades</span>
+                            <span class="font-bold" id="totalTrades">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Win Rate</span>
+                            <span class="font-bold" id="winRate">0%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">P/L</span>
+                            <span class="font-bold" id="pnl">$0.00</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const state = {
+            api: null,
+            connected: false,
+            account: null,
+            symbols: [],
+            ticks: new Map(),
+            activeContracts: new Map(),
+            history: [],
+            stats: { trades: 0, wins: 0, profit: 0 },
+            autoTrade: false,
+            lastTrade: 0
+        };
+
+        class API {
+            constructor() {
+                this.ws = null;
+                this.callbacks = new Map();
+                this.reqId = 1;
+            }
+
+            connect(token) {
+                return new Promise((res, rej) => {
+                    this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+                    this.ws.onopen = () => {
+                        state.connected = true;
+                        updateStatus(true);
+                        if (token) this.auth(token).then(res).catch(rej);
+                        else { this.loadSymbols(); res(); }
+                    };
+                    this.ws.onmessage = (m) => this.handle(JSON.parse(m.data));
+                    this.ws.onerror = () => updateStatus(false);
+                    this.ws.onclose = () => { state.connected = false; updateStatus(false); };
+                });
+            }
+
+            send(req) {
+                return new Promise((res, rej) => {
+                    if (!state.connected) { rej(new Error('Not connected')); return; }
+                    const id = this.reqId++;
+                    req.req_id = id;
+                    this.callbacks.set(id, { res, rej });
+                    this.ws.send(JSON.stringify(req));
+                    setTimeout(() => {
+                        if (this.callbacks.has(id)) {
+                            this.callbacks.delete(id);
+                            rej(new Error('Timeout'));
+                        }
+                    }, 30000);
+                });
+            }
+
+            handle(data) {
+                const id = data.req_id;
+                if (id && this.callbacks.has(id)) {
+                    const { res, rej } = this.callbacks.get(id);
+                    this.callbacks.delete(id);
+                    data.error ? rej(data.error) : res(data);
+                } else this.handleSub(data);
+            }
+
+            async auth(token) {
+                const r = await this.send({ authorize: token });
+                if (r.authorize) {
+                    state.account = r.authorize;
+                    localStorage.setItem('deriv_token', token);
+                    updateAccount();
+                    this.loadSymbols();
+                    this.send({ balance: 1, subscribe: 1 });
+                    this.send({ transaction: 1, subscribe: 1 });
+                    notify(`Connected as ${state.account.email}`, 'success');
+                    document.getElementById('authModal').classList.remove('show');
+                }
+            }
+
+            async loadSymbols() {
+                const r = await this.send({ active_symbols: 'brief', product_type: 'basic' });
+                if (r.active_symbols) {
+                    state.symbols = r.active_symbols.filter(s => 
+                        s.market === 'forex' || s.market === 'synthetic_index' || s.market === 'commodities'
+                    );
+                    populateMarkets();
+                }
+            }
+
+            async subscribe(symbol) {
+                await this.send({ ticks: symbol, subscribe: 1 });
+            }
+
+            handleSub(data) {
+                if (data.tick) {
+                    const { symbol, quote, epoch } = data.tick;
+                    const price = parseFloat(quote);
+                    if (!state.ticks.has(symbol)) state.ticks.set(symbol, []);
+                    state.ticks.get(symbol).push({ price, time: epoch * 1000 });
+                    if (state.ticks.get(symbol).length > 200) state.ticks.get(symbol).shift();
+
+                    if (symbol === document.getElementById('market').value) {
+                        updatePrice(price);
+                        processIndicators(symbol);
+                        processSignals(symbol, price);
+                    }
+                    
+                    if (state.autoTrade && Date.now() - state.lastTrade > 30000) {
+                        processStrategies(symbol);
+                    }
+                }
+
+                if (data.balance && state.account) {
+                    state.account.balance = data.balance.balance;
+                    updateAccount();
+                }
+
+                if (data.transaction) {
+                    const { action, amount } = data.transaction;
+                    if (action === 'sell') {
+                        const profit = parseFloat(amount);
+                        state.stats.profit += profit;
+                        if (profit > 0) state.stats.wins++;
+                        updateStats();
+                        notify(profit > 0 ? `Won $${profit.toFixed(2)}` : `Lost $${Math.abs(profit).toFixed(2)}`, profit > 0 ? 'success' : 'error');
+                    }
+                }
+
+                if (data.proposal_open_contract) {
+                    updateContract(data.proposal_open_contract);
+                }
+            }
+
+            async trade(params) {
+                const prop = await this.send({
+                    proposal: 1,
+                    amount: parseFloat(params.amount),
+                    basis: 'stake',
+                    contract_type: params.type,
+                    currency: 'USD',
+                    duration: parseInt(params.duration),
+                    duration_unit: params.unit,
+                    symbol: params.symbol
+                });
+
+                if (prop.proposal) {
+                    const buy = await this.send({ buy: prop.proposal.id, price: parseFloat(params.amount) });
+                    if (buy.buy) {
+                        state.stats.trades++;
+                        state.lastTrade = Date.now();
+                        updateStats();
+                        
+                        const t = {
+                            id: buy.buy.contract_id,
+                            symbol: params.symbol,
+                            type: params.type,
+                            amount: params.amount,
+                            entry: prop.proposal.spot,
+                            time: Date.now()
+                        };
+                        
+                        addActive(t);
+                        addHistory(t);
+
+                        await this.send({ proposal_open_contract: 1, contract_id: buy.buy.contract_id, subscribe: 1 });
+                        return buy;
+                    }
+                }
+            }
+        }
+
+        class Indicators {
+            static RSI(prices, period = 14) {
+                if (prices.length < period + 1) return 50;
+                let gains = 0, losses = 0;
+                for (let i = 1; i <= period; i++) {
+                    const change = prices[prices.length - i] - prices[prices.length - i - 1];
+                    change > 0 ? (gains += change) : (losses -= change);
+                }
+                const avgGain = gains / period;
+                const avgLoss = losses / period;
+                return avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+            }
+
+            static MACD(prices, fast = 12, slow = 26, signal = 9) {
+                const ema12 = this.EMA(prices, fast);
+                const ema26 = this.EMA(prices, slow);
+                const macdLine = ema12 - ema26;
+                return { line: macdLine, signal: 0, histogram: macdLine };
+            }
+
+            static EMA(prices, period) {
+                const k = 2 / (period + 1);
+                let ema = prices[0];
+                for (let i = 1; i < prices.length; i++) {
+                    ema = prices[i] * k + ema * (1 - k);
+                }
+                return ema;
+            }
+
+            static SMA(prices, period) {
+                if (prices.length < period) return 0;
+                const slice = prices.slice(-period);
+                return slice.reduce((a, b) => a + b) / period;
+            }
+
+            static BB(prices, period = 20, std = 2) {
+                if (prices.length < period) return null;
+                const slice = prices.slice(-period);
+                const mean = slice.reduce((a, b) => a + b) / period;
+                const variance = slice.reduce((s, p) => s + Math.pow(p - mean, 2), 0) / period;
+                const stdDev = Math.sqrt(variance);
+                return { upper: mean + stdDev * std, middle: mean, lower: mean - stdDev * std };
+            }
+
+            static Momentum(prices, period = 10) {
+                if (prices.length < period) return 0;
+                return prices[prices.length - 1] - prices[prices.length - period];
+            }
+        }
+
+        const strategies = {
+            rsi_reversal: { name: 'RSI Reversal', active: false, trades: 0, wins: 0 },
+            macd_cross: { name: 'MACD Cross', active: false, trades: 0, wins: 0 },
+            bollinger: { name: 'Bollinger Bands', active: false, trades: 0, wins: 0 },
+            ema_cross: { name: 'EMA Cross', active: false, trades: 0, wins: 0 },
+            sma_cross: { name: 'SMA Cross', active: false, trades: 0, wins: 0 },
+            smart_trader: { name: 'Smart Trader', active: false, trades: 0, wins: 0 }
+        };
+
+        function processStrategies(symbol) {
+            const ticks = state.ticks.get(symbol);
+            if (!ticks || ticks.length < 50) return;
+
+            const prices = ticks.map(t => t.price);
+            let signal = null;
+
+            for (const [id, strat] of Object.entries(strategies)) {
+                if (!strat.active) continue;
+
+                if (id === 'rsi_reversal') {
+                    const rsi = Indicators.RSI(prices, parseInt(document.getElementById('rsiPeriod').value));
+                    if (rsi < 30) signal = 'CALL';
+                    else if (rsi > 70) signal = 'PUT';
+                }
+                else if (id === 'macd_cross') {
+                    const macd = Indicators.MACD(prices, parseInt(document.getElementById('macdFast').value), parseInt(document.getElementById('macdSlow').value));
+                    if (macd.line > 0) signal = 'CALL';
+                    else if (macd.line < 0) signal = 'PUT';
+                }
+                else if (id === 'bollinger') {
+                    const bb = Indicators.BB(prices, parseInt(document.getElementById('bbPeriod').value));
+                    if (bb && prices[prices.length - 1] < bb.lower) signal = 'CALL';
+                    else if (bb && prices[prices.length - 1] > bb.upper) signal = 'PUT';
+                }
+                else if (id === 'ema_cross') {
+                    const emaFast = Indicators.EMA(prices, 9);
+                    const emaSlow = Indicators.EMA(prices, 21);
+                    if (emaFast > emaSlow) signal = 'CALL';
+                    else if (emaFast < emaSlow) signal = 'PUT';
+                }
+                else if (id === 'sma_cross') {
+                    const smaFast = Indicators.SMA(prices, 9);
+                    const smaSlow = Indicators.SMA(prices, 21);
+                    if (smaFast > smaSlow) signal = 'CALL';
+                    else if (smaFast < smaSlow) signal = 'PUT';
+                }
+                else if (id === 'smart_trader') {
+                    const macd = Indicators.MACD(prices, 12, 26);
+                    const ma = Indicators.SMA([macd.line], 2);
+                    const bb = Indicators.BB([macd.line], 200, 1.5);
+                    
+                    if (bb && macd.histogram > bb.upper && macd.signal > bb.upper && macd.signal > ma) {
+                        signal = 'PUT';
+                    } else if (bb && macd.histogram < bb.lower && macd.signal < bb.lower && macd.signal < ma) {
+                        signal = 'CALL';
+                    }
+                }
+
+                if (signal && checkRisk()) {
+                    executeTrade(symbol, signal);
+                    return;
+                }
+            }
+        }
+
+        function checkRisk() {
+            const maxStake = parseFloat(document.getElementById('maxStake').value);
+            const maxLoss = parseFloat(document.getElementById('maxLoss').value);
+            const stake = parseFloat(document.getElementById('amount').value);
+            
+            if (stake > maxStake) {
+                notify('Stake exceeds max risk', 'warning');
+                return false;
+            }
+            if (Math.abs(state.stats.profit) > maxLoss && state.stats.profit < 0) {
+                notify('Max daily loss reached', 'error');
+                document.getElementById('autoTrade').checked = false;
+                state.autoTrade = false;
+                return false;
+            }
+            return true;
+        }
+
+        async function executeTrade(symbol, type) {
+            try {
+                await state.api.trade({
+                    symbol,
+                    type,
+                    amount: document.getElementById('amount').value,
+                    duration: document.getElementById('duration').value,
+                    unit: document.getElementById('unit').value
+                });
+                notify(`${type} trade placed on ${symbol}`, 'success');
+            } catch (e) {
+                console.error('Trade failed:', e);
+            }
+        }
+
+        function processIndicators(symbol) {
+            const ticks = state.ticks.get(symbol);
+            if (!ticks || ticks.length < 30) return;
+
+            const prices = ticks.map(t => t.price);
+            const container = document.getElementById('indicators');
+
+            const indicators = [
+                { name: 'RSI', value: Indicators.RSI(prices, parseInt(document.getElementById('rsiPeriod').value)).toFixed(1), color: 'blue' },
+                { name: 'MACD', value: Indicators.MACD(prices).line.toFixed(5), color: 'green' },
+                { name: 'EMA', value: Indicators.EMA(prices, parseInt(document.getElementById('emaPeriod').value)).toFixed(5), color: 'yellow' },
+                { name: 'SMA', value: Indicators.SMA(prices, parseInt(document.getElementById('smaPeriod').value)).toFixed(5), color: 'purple' },
+                { name: 'BB', value: 'Active', color: 'pink' },
+                { name: 'Momentum', value: Indicators.Momentum(prices).toFixed(5), color: 'indigo' }
+            ];
+
+            container.innerHTML = indicators.map(ind => `
+                <div class="bg-gray-800/50 rounded p-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs text-gray-400">${ind.name}</span>
+                        <span class="text-xs px-1 py-0.5 rounded bg-${ind.color}-900/50 text-${ind.color}-300">${ind.value}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function processSignals(symbol, price) {
+            const ticks = state.ticks.get(symbol);
+            if (!ticks || ticks.length < 30) return;
+
+            const prices = ticks.map(t => t.price);
+            const signals = [];
+
+            const rsi = Indicators.RSI(prices);
+            if (rsi < 30) signals.push({ indicator: 'RSI', signal: 'BUY', value: rsi.toFixed(1) });
+            else if (rsi > 70) signals.push({ indicator: 'RSI', signal: 'SELL', value: rsi.toFixed(1) });
+
+            const macd = Indicators.MACD(prices);
+            if (macd.line > 0) signals.push({ indicator: 'MACD', signal: 'BUY', value: macd.line.toFixed(5) });
+            else if (macd.line < 0) signals.push({ indicator: 'MACD', signal: 'SELL', value: macd.line.toFixed(5) });
+
+            const bb = Indicators.BB(prices);
+            if (bb) {
+                if (price < bb.lower) signals.push({ indicator: 'BB', signal: 'BUY', value: bb.lower.toFixed(5) });
+                else if (price > bb.upper) signals.push({ indicator: 'BB', signal: 'SELL', value: bb.upper.toFixed(5) });
+            }
+
+            updateSignals(signals);
+        }
+
+        function updateSignals(signals) {
+            const container = document.getElementById('signals');
+            if (signals.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-4 text-xs">No signals</div>';
+                return;
+            }
+
+            container.innerHTML = signals.map(s => `
+                <div class="signal-${s.signal.toLowerCase()} p-2 rounded text-xs">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="font-bold">${s.indicator} - ${s.signal}</div>
+                            <div class="text-gray-400">${s.value}</div>
+                        </div>
+                        <i class="fas fa-${s.signal === 'BUY' ? 'arrow-up text-green-400' : 'arrow-down text-red-400'}"></i>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateContract(contract) {
+            const id = contract.contract_id;
+            if (state.activeContracts.has(id)) {
+                const el = document.querySelector(`[data-contract="${id}"]`);
+                if (el) {
+                    const pnl = parseFloat(contract.profit || 0);
+                    el.querySelector('.pnl').textContent = `${pnl.toFixed(2)}`;
+                    el.querySelector('.pnl').className = `pnl font-bold text-sm ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`;
+                }
+
+                if (contract.is_sold) {
+                    state.activeContracts.delete(id);
+                    setTimeout(() => renderActive(), 1000);
+                }
+            }
+        }
+
+        function addActive(trade) {
+            state.activeContracts.set(trade.id, trade);
+            renderActive();
+        }
+
+        function renderActive() {
+            const container = document.getElementById('active');
+            document.getElementById('activeCount').textContent = state.activeContracts.size;
+
+            if (state.activeContracts.size === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-8 text-xs">No active trades</div>';
+                return;
+            }
+
+            container.innerHTML = Array.from(state.activeContracts.values()).map(t => `
+                <div data-contract="${t.id}" class="bg-gray-800/30 rounded p-2 border-l-4 border-${t.type === 'CALL' ? 'green' : 'red'}-500">
+                    <div class="flex justify-between items-start mb-1">
+                        <div>
+                            <div class="font-bold text-xs">${t.type} ${t.symbol}</div>
+                            <div class="text-xs text-gray-400">${new Date(t.time).toLocaleTimeString()}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="pnl font-bold text-sm">$0.00</div>
+                            <div class="text-xs text-gray-400">${t.amount}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addHistory(trade) {
+            state.history.unshift(trade);
+            if (state.history.length > 50) state.history.pop();
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history');
+            if (state.history.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-8 text-xs">No trades yet</div>';
+                return;
+            }
+
+            container.innerHTML = state.history.slice(0, 20).map(t => `
+                <div class="bg-gray-800/30 rounded p-2 border-l-4 border-${t.type === 'CALL' ? 'green' : 'red'}-500">
+                    <div class="flex justify-between text-xs">
+                        <div>
+                            <div class="font-bold">${t.type} ${t.symbol}</div>
+                            <div class="text-gray-400">${new Date(t.time).toLocaleTimeString()}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold">${t.amount}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderStrategies() {
+            const container = document.getElementById('strategies');
+            container.innerHTML = Object.entries(strategies).map(([id, s]) => `
+                <div class="bg-gray-800/50 rounded p-3 cursor-pointer hover:bg-gray-800/70 ${s.active ? 'strategy-active' : ''}" onclick="toggleStrategy('${id}')">
+                    <div class="flex justify-between mb-2">
+                        <div>
+                            <div class="font-bold text-xs">${s.name}</div>
+                            <span class="text-xs px-2 py-0.5 rounded ${s.active ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-300'}">${s.active ? 'Active' : 'Paused'}</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); openSettings('${id}')" class="text-gray-400 hover:text-white">
+                            <i class="fas fa-cog text-xs"></i>
+                        </button>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span>Trades: ${s.trades}</span>
+                        <span>Wins: ${s.wins}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleStrategy(id) {
+            strategies[id].active = !strategies[id].active;
+            renderStrategies();
+            notify(`${strategies[id].name} ${strategies[id].active ? 'activated' : 'paused'}`, strategies[id].active ? 'success' : 'warning');
+        }
+
+        function openSettings(id) {
+            document.getElementById('modalTitle').textContent = `${strategies[id].name} Settings`;
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-3">
+                    <p class="text-sm text-gray-400">Configure parameters for ${strategies[id].name}</p>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span>Entry Timeframe</span>
+                            <select class="bg-gray-900 border border-gray-700 rounded px-2 py-1">
+                                <option value="t">Ticks</option>
+                                <option value="s">Seconds</option>
+                                <option value="m">Minutes</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Trade Duration</span>
+                            <input type="number" value="5" class="w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1" min="1">
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Stake Amount</span>
+                            <input type="number" value="10" class="w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1" min="1">
+                        </div>
+                    </div>
+                    <button onclick="closeModal()" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded mt-4">
+                        Save Settings
+                    </button>
+                </div>
+            `;
+            document.getElementById('strategyModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('strategyModal').classList.remove('show');
+        }
+
+        function populateMarkets() {
+            const sel = document.getElementById('market');
+            sel.innerHTML = '';
+            
+            const groups = {
+                'synthetic_index': 'Synthetic Indices',
+                'forex': 'Forex',
+                'commodities': 'Commodities'
+            };
+            
+            Object.entries(groups).forEach(([market, label]) => {
+                const filtered = state.symbols.filter(s => s.market === market);
+                if (filtered.length) {
+                    const group = document.createElement('optgroup');
+                    group.label = label;
+                    filtered.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.symbol;
+                        opt.textContent = s.display_name;
+                        group.appendChild(opt);
+                    });
+                    sel.appendChild(group);
+                }
+            });
+            
+            if (state.symbols.length) {
+                sel.value = state.symbols[0].symbol;
+                state.api.subscribe(state.symbols[0].symbol);
+            }
+            
+            sel.onchange = (e) => state.api.subscribe(e.target.value);
+        }
+
+        function updatePrice(price) {
+            const el = document.getElementById('price');
+            el.textContent = price.toFixed(5);
+            el.classList.add('price-flash');
+            setTimeout(() => el.classList.remove('price-flash'), 300);
+        }
+
+        function updateAccount() {
+            if (!state.account) return;
+            document.getElementById('balance').textContent = `${parseFloat(state.account.balance).toFixed(2)}`;
+        }
+
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            const btn = document.getElementById('connectBtn');
+            if (connected) {
+                status.innerHTML = '<span class="text-green-400">● Connected</span>';
+                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Connected';
+                btn.className = 'px-4 py-2 bg-green-600 rounded-lg text-sm';
+            } else {
+                status.innerHTML = '<span class="text-red-400">● Disconnected</span>';
+                btn.innerHTML = '<i class="fas fa-plug mr-2"></i>Connect';
+                btn.className = 'px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm';
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('totalTrades').textContent = state.stats.trades;
+            const winRate = state.stats.trades > 0 ? (state.stats.wins / state.stats.trades * 100).toFixed(1) : 0;
+            document.getElementById('winRate').textContent = `${winRate}%`;
+            const pnl = state.stats.profit.toFixed(2);
+            const pnlEl = document.getElementById('pnl');
+            pnlEl.textContent = `${pnl}`;
+            pnlEl.className = `font-bold ${state.stats.profit >= 0 ? 'text-green-400' : 'text-red-400'}`;
+            
+            updateRiskLevel();
+        }
+
+        function updateRiskLevel() {
+            const maxLoss = parseFloat(document.getElementById('maxLoss').value);
+            const lossPercent = Math.abs(state.stats.profit) / maxLoss * 100;
+            const riskLevel = document.getElementById('riskLevel');
+            const riskStatus = document.getElementById('riskStatus');
+            
+            if (lossPercent < 30) {
+                riskLevel.textContent = 'Low Risk';
+                riskStatus.textContent = 'Safe';
+                riskStatus.className = 'text-green-400';
+            } else if (lossPercent < 70) {
+                riskLevel.textContent = 'Medium Risk';
+                riskStatus.textContent = 'Caution';
+                riskStatus.className = 'text-yellow-400';
+            } else {
+                riskLevel.textContent = 'High Risk';
+                riskStatus.textContent = 'Danger';
+                riskStatus.className = 'text-red-400';
+            }
+        }
+
+        function notify(msg, type = 'info') {
+            const colors = {
+                success: 'bg-green-900 text-green-300 border-green-700',
+                error: 'bg-red-900 text-red-300 border-red-700',
+                warning: 'bg-yellow-900 text-yellow-300 border-yellow-700',
+                info: 'bg-blue-900 text-blue-300 border-blue-700'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 ${colors[type]} border text-sm`;
+            toast.innerHTML = `<div class="flex items-center"><i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}-circle mr-2"></i><span>${msg}</span></div>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function trade(type) {
+            if (!state.connected) {
+                notify('Connect to Deriv first', 'error');
+                return;
+            }
+            if (!checkRisk()) return;
+
+            const symbol = document.getElementById('market').value;
+            const amount = document.getElementById('amount').value;
+            const duration = document.getElementById('duration').value;
+            const unit = document.getElementById('unit').value;
+
+            try {
+                await state.api.trade({ symbol, type, amount, duration, unit });
+            } catch (e) {
+                notify(e.message || 'Trade failed', 'error');
+            }
+        }
+
+        function setAmt(amt) {
+            document.getElementById('amount').value = amt;
+        }
+
+        function toggleSettings() {
+            document.getElementById('settings').classList.toggle('hidden');
+        }
+
+        function showAuthModal() {
+            document.getElementById('authModal').classList.add('show');
+        }
+
+        async function connectLive() {
+            const token = document.getElementById('apiTokenInput').value.trim();
+            if (!token) {
+                notify('Enter API token', 'warning');
+                return;
+            }
+
+            try {
+                await state.api.connect(token);
+            } catch (e) {
+                notify(e.message || 'Connection failed', 'error');
+            }
+        }
+
+        window.onload = () => {
+            state.api = new API();
+            renderStrategies();
+            
+            document.getElementById('autoTrade').onchange = (e) => {
+                state.autoTrade = e.target.checked;
+                notify(`Auto trading ${state.autoTrade ? 'enabled' : 'disabled'}`, state.autoTrade ? 'success' : 'warning');
+            };
+
+            const savedToken = localStorage.getItem('deriv_token');
+            if (savedToken) {
+                setTimeout(() => state.api.connect(savedToken).catch(() => showAuthModal()), 1000);
+            }
+        };
+    </script>
+</body>
+</html>
