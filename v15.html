@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deriv Advanced Trading Bot</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00ff88, #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #00ff88;
+        }
+
+        .status-dot.disconnected {
+            background: #ff4444;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ff88;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #00ff88;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #00ff88, #00ccff);
+            color: #000;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #ffaa00, #ff6600);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .trades-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .trade-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 3px solid #00ff88;
+            font-size: 13px;
+        }
+
+        .trade-item.loss {
+            border-left-color: #ff4444;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border-left: 4px solid #00ff88;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s;
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .notification.error {
+            border-left-color: #ff4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.4s;
+            border-radius: 30px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #00ff88;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+
+        .strategy-indicators {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .indicator {
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .indicator.active {
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Deriv Advanced Trading Bot</h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot" id="wsStatus"></div>
+                    <span id="wsStatusText">Disconnected</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot" id="botStatus"></div>
+                    <span id="botStatusText">Bot Stopped</span>
+                </div>
+                <div class="status-item">
+                    <span>Balance: $<span id="balance">0.00</span></span>
+                </div>
+                <div class="status-item">
+                    <span>P&L: $<span id="pnl">0.00</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>🔐 API Connection</h2>
+                <div class="form-group">
+                    <label>API Token</label>
+                    <input type="password" id="apiToken" placeholder="Enter your Deriv API token">
+                </div>
+                <button class="btn-primary" onclick="connectAPI()">Connect</button>
+                <button class="btn-danger" onclick="disconnectAPI()">Disconnect</button>
+            </div>
+
+            <div class="card">
+                <h2>📊 Market Selection</h2>
+                <div class="form-group">
+                    <label>Symbol</label>
+                    <select id="symbol">
+                        <option value="R_10">Volatility 10 Index</option>
+                        <option value="R_25">Volatility 25 Index</option>
+                        <option value="R_50">Volatility 50 Index</option>
+                        <option value="R_75">Volatility 75 Index</option>
+                        <option value="R_100">Volatility 100 Index</option>
+                        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                        <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                        <option value="BOOM300N">Boom 300 Index</option>
+                        <option value="BOOM500">Boom 500 Index</option>
+                        <option value="BOOM1000">Boom 1000 Index</option>
+                        <option value="CRASH300N">Crash 300 Index</option>
+                        <option value="CRASH500">Crash 500 Index</option>
+                        <option value="CRASH1000">Crash 1000 Index</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Timeframe</label>
+                    <select id="timeframe">
+                        <option value="60">1 Minute</option>
+                        <option value="180">3 Minutes</option>
+                        <option value="300">5 Minutes</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🎯 Strategy Selection</h2>
+                <div class="form-group">
+                    <label>Active Strategy</label>
+                    <select id="strategy">
+                        <option value="ema_cross">EMA Cross + Candle Close</option>
+                        <option value="macd_signal">MACD Signal + Candle Close</option>
+                        <option value="momentum">Momentum</option>
+                        <option value="rsi_reversal">RSI Reversal + Candle Close</option>
+                    </select>
+                </div>
+                <div class="strategy-indicators">
+                    <div class="indicator" id="ind-ema">EMA Cross</div>
+                    <div class="indicator" id="ind-macd">MACD Signal</div>
+                    <div class="indicator" id="ind-momentum">Momentum</div>
+                    <div class="indicator" id="ind-rsi">RSI Reversal</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>⚙️ Trading Parameters</h2>
+                <div class="form-group">
+                    <label>Trade Duration Type</label>
+                    <select id="durationType">
+                        <option value="t">Ticks</option>
+                        <option value="m">Minutes</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Duration Value</label>
+                    <input type="number" id="duration" value="5" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Stake Amount ($)</label>
+                    <input type="number" id="stake" value="1" min="0.35" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Max Trades</label>
+                    <input type="number" id="maxTrades" value="10" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Profit Target ($)</label>
+                    <input type="number" id="profitTarget" value="10" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Max Loss ($)</label>
+                    <input type="number" id="maxLoss" value="10" step="0.01">
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>💰 Martingale Settings</h2>
+                <div class="form-group">
+                    <label>Enable Martingale</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="martingaleEnabled">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Multiplier</label>
+                    <input type="number" id="martingaleMultiplier" value="2" min="1.1" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Max Steps</label>
+                    <input type="number" id="martingaleSteps" value="3" min="1" max="10">
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🛡️ Risk Manager</h2>
+                <div class="form-group">
+                    <label>Daily Loss Limit ($)</label>
+                    <input type="number" id="dailyLossLimit" value="50" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Stop After Consecutive Losses</label>
+                    <input type="number" id="consecutiveLosses" value="5" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Cooldown Period (seconds)</label>
+                    <input type="number" id="cooldownPeriod" value="30" min="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📈 Live Chart & Signals</h2>
+            <div class="chart-container">
+                <canvas id="tradingChart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>📊 Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="totalTrades">0</div>
+                        <div class="stat-label">Total Trades</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="winRate">0%</div>
+                        <div class="stat-label">Win Rate</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="wins">0</div>
+                        <div class="stat-label">Wins</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="losses">0</div>
+                        <div class="stat-label">Losses</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🎮 Bot Control</h2>
+                <button class="btn-primary" onclick="startBot()">▶️ Start Bot</button>
+                <button class="btn-danger" onclick="stopBot()">⏹️ Stop Bot</button>
+                <button class="btn-warning" onclick="resetStats()">🔄 Reset Stats</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>🔄 Active Trades</h2>
+                <div class="trades-container" id="activeTrades">
+                    <p style="text-align: center; color: #aaa;">No active trades</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📜 Trade History</h2>
+                <div class="trades-container" id="tradeHistory">
+                    <p style="text-align: center; color: #aaa;">No trade history</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        const state = {
+            ws: null,
+            connected: false,
+            botRunning: false,
+            balance: 0,
+            totalPnL: 0,
+            trades: [],
+            activeTrades: [],
+            candles: [],
+            chart: null,
+            currentStake: 0,
+            martingaleStep: 0,
+            consecutiveLosses: 0,
+            dailyLoss: 0,
+            stats: {
+                total: 0,
+                wins: 0,
+                losses: 0
+            },
+            lastTradeTime: 0,
+            signals: [],
+            pendingSignal: null
+        };
+
+        // Notification system
+        function notify(message, isError = false) {
+            const notif = document.createElement('div');
+            notif.className = `notification ${isError ? 'error' : ''}`;
+            notif.textContent = message;
+            document.body.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.style.animation = 'slideIn 0.3s reverse';
+                setTimeout(() => notif.remove(), 300);
+            }, 3000);
+        }
+
+        // WebSocket connection
+        function connectAPI() {
+            const token = document.getElementById('apiToken').value;
+            if (!token) {
+                notify('Please enter API token', true);
+                return;
+            }
+
+            if (state.ws) {
+                state.ws.close();
+            }
+
+            state.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+            
+            state.ws.onopen = () => {
+                state.ws.send(JSON.stringify({ authorize: token }));
+            };
+
+            state.ws.onmessage = (msg) => {
+                const data = JSON.parse(msg.data);
+                handleWSMessage(data);
+            };
+
+            state.ws.onerror = () => {
+                updateStatus(false);
+                notify('WebSocket error', true);
+            };
+
+            state.ws.onclose = () => {
+                updateStatus(false);
+                notify('Disconnected from Deriv', true);
+            };
+        }
+
+        function disconnectAPI() {
+            if (state.ws) {
+                state.ws.close();
+                state.ws = null;
+                updateStatus(false);
+                notify('Disconnected');
+            }
+        }
+
+        function handleWSMessage(data) {
+            if (data.authorize) {
+                state.connected = true;
+                state.balance = data.authorize.balance;
+                updateStatus(true);
+                updateBalance();
+                notify('Connected successfully!');
+                subscribeToCandles();
+            }
+
+            if (data.balance) {
+                state.balance = data.balance.balance;
+                updateBalance();
+            }
+
+            if (data.candles) {
+                processCandles(data.candles);
+            }
+
+            if (data.ohlc) {
+                updateCandle(data.ohlc);
+            }
+
+            if (data.proposal) {
+                handleProposalResponse(data.proposal);
+            }
+
+            if (data.proposal_open_contract) {
+                updateActiveTrade(data.proposal_open_contract);
+            }
+
+            if (data.buy) {
+                handleBuyResponse(data.buy);
+            }
+
+            if (data.error) {
+                notify(data.error.message, true);
+            }
+        }
+
+        function subscribeToCandles() {
+            const symbol = document.getElementById('symbol').value;
+            const timeframe = document.getElementById('timeframe').value;
+            
+            state.ws.send(JSON.stringify({
+                ticks_history: symbol,
+                adjust_start_time: 1,
+                count: 100,
+                end: 'latest',
+                start: 1,
+                style: 'candles',
+                granularity: parseInt(timeframe)
+            }));
+
+            state.ws.send(JSON.stringify({
+                forget_all: 'candles'
+            }));
+
+            setTimeout(() => {
+                state.ws.send(JSON.stringify({
+                    ticks_history: symbol,
+                    adjust_start_time: 1,
+                    count: 1,
+                    end: 'latest',
+                    start: 1,
+                    style: 'candles',
+                    granularity: parseInt(timeframe),
+                    subscribe: 1
+                }));
+            }, 100);
+        }
+
+        function processCandles(candles) {
+            state.candles = candles.map(c => ({
+                time: c.epoch,
+                open: parseFloat(c.open),
+                high: parseFloat(c.high),
+                low: parseFloat(c.low),
+                close: parseFloat(c.close)
+            }));
+            updateChart();
+            analyzeMarket();
+        }
+
+        function updateCandle(ohlc) {
+            const candle = {
+                time: ohlc.epoch,
+                open: parseFloat(ohlc.open),
+                high: parseFloat(ohlc.high),
+                low: parseFloat(ohlc.low),
+                close: parseFloat(ohlc.close)
+            };
+
+            if (state.candles.length > 0 && state.candles[state.candles.length - 1].time === candle.time) {
+                state.candles[state.candles.length - 1] = candle;
+            } else {
+                state.candles.push(candle);
+                if (state.candles.length > 100) {
+                    state.candles.shift();
+                }
+            }
+
+            updateChart();
+            analyzeMarket();
+        }
+
+        // Technical indicators
+        function calculateEMA(data, period) {
+            const k = 2 / (period + 1);
+            let ema = data[0];
+            const result = [ema];
+
+            for (let i = 1; i < data.length; i++) {
+                ema = data[i] * k + ema * (1 - k);
+                result.push(ema);
+            }
+
+            return result;
+        }
+
+        function calculateMACD(closes) {
+            const ema12 = calculateEMA(closes, 12);
+            const ema26 = calculateEMA(closes, 26);
+            const macd = ema12.map((val, i) => val - ema26[i]);
+            const signal = calculateEMA(macd, 9);
+            const histogram = macd.map((val, i) => val - signal[i]);
+
+            return { macd, signal, histogram };
+        }
+
+        function calculateRSI(closes, period = 14) {
+            const changes = [];
+            for (let i = 1; i < closes.length; i++) {
+                changes.push(closes[i] - closes[i - 1]);
+            }
+
+            const gains = changes.map(c => c > 0 ? c : 0);
+            const losses = changes.map(c => c < 0 ? -c : 0);
+
+            let avgGain = gains.slice(0, period).reduce((a, b) => a + b) / period;
+            let avgLoss = losses.slice(0, period).reduce((a, b) => a + b) / period;
+
+            const rsi = [100 - (100 / (1 + avgGain / avgLoss))];
+
+            for (let i = period; i < changes.length; i++) {
+                avgGain = (avgGain * (period - 1) + gains[i]) / period;
+                avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+                rsi.push(100 - (100 / (1 + avgGain / avgLoss)));
+            }
+
+            return rsi;
+        }
+
+        function calculateMomentum(closes, period = 10) {
+            const momentum = [];
+            for (let i = period; i < closes.length; i++) {
+                momentum.push(closes[i] - closes[i - period]);
+            }
+            return momentum;
+        }
+
+        // Strategy analysis
+        function analyzeMarket() {
+            if (state.candles.length < 50 || !state.botRunning) return;
+
+            const closes = state.candles.map(c => c.close);
+            const strategy = document.getElementById('strategy').value;
+            let signal = null;
+
+            // Update strategy indicators
+            document.querySelectorAll('.indicator').forEach(el => el.classList.remove('active'));
+
+            switch (strategy) {
+                case 'ema_cross':
+                    signal = analyzeEMACross(closes);
+                    document.getElementById('ind-ema').classList.add('active');
+                    break;
+                case 'macd_signal':
+                    signal = analyzeMACDSignal(closes);
+                    document.getElementById('ind-macd').classList.add('active');
+                    break;
+                case 'momentum':
+                    signal = analyzeMomentum(closes);
+                    document.getElementById('ind-momentum').classList.add('active');
+                    break;
+                case 'rsi_reversal':
+                    signal = analyzeRSIReversal(closes);
+                    document.getElementById('ind-rsi').classList.add('active');
+                    break;
+            }
+
+            if (signal && canTrade()) {
+                executeTrade(signal);
+            }
+        }
+
+        function analyzeEMACross(closes) {
+            const ema9 = calculateEMA(closes, 9);
+            const ema21 = calculateEMA(closes, 21);
+            const len = closes.length;
+
+            if (len < 22) return null;
+
+            const prevEMA9 = ema9[len - 2];
+            const prevEMA21 = ema21[len - 2];
+            const currEMA9 = ema9[len - 1];
+            const currEMA21 = ema21[len - 1];
+            const candleClose = closes[len - 1];
+            const candleOpen = state.candles[len - 1].open;
+
+            // Bullish: EMA9 crosses above EMA21 + bullish candle
+            if (prevEMA9 <= prevEMA21 && currEMA9 > currEMA21 && candleClose > candleOpen) {
+                return { type: 'CALL', strategy: 'EMA Cross Bullish' };
+            }
+
+            // Bearish: EMA9 crosses below EMA21 + bearish candle
+            if (prevEMA9 >= prevEMA21 && currEMA9 < currEMA21 && candleClose < candleOpen) {
+                return { type: 'PUT', strategy: 'EMA Cross Bearish' };
+            }
+
+            return null;
+        }
+
+        function analyzeMACDSignal(closes) {
+            const { macd, signal } = calculateMACD(closes);
+            const len = macd.length;
+
+            if (len < 2) return null;
+
+            const prevMACD = macd[len - 2];
+            const prevSignal = signal[len - 2];
+            const currMACD = macd[len - 1];
+            const currSignal = signal[len - 1];
+            const candleClose = closes[closes.length - 1];
+            const candleOpen = state.candles[state.candles.length - 1].open;
+
+            // Bullish: MACD crosses above signal + bullish candle
+            if (prevMACD <= prevSignal && currMACD > currSignal && candleClose > candleOpen) {
+                return { type: 'CALL', strategy: 'MACD Signal Bullish' };
+            }
+
+            // Bearish: MACD crosses below signal + bearish candle
+            if (prevMACD >= prevSignal && currMACD < currSignal && candleClose < candleOpen) {
+                return { type: 'PUT', strategy: 'MACD Signal Bearish' };
+            }
+
+            return null;
+        }
+
+        function analyzeMomentum(closes) {
+            const momentum = calculateMomentum(closes, 10);
+            const len = momentum.length;
+
+            if (len < 2) return null;
+
+            const currMomentum = momentum[len - 1];
+            const prevMomentum = momentum[len - 2];
+
+            // Strong positive momentum
+            if (currMomentum > 0 && currMomentum > prevMomentum && Math.abs(currMomentum) > 0.0001) {
+                return { type: 'CALL', strategy: 'Positive Momentum' };
+            }
+
+            // Strong negative momentum
+            if (currMomentum < 0 && currMomentum < prevMomentum && Math.abs(currMomentum) > 0.0001) {
+                return { type: 'PUT', strategy: 'Negative Momentum' };
+            }
+
+            return null;
+        }
+
+        function analyzeRSIReversal(closes) {
+            const rsi = calculateRSI(closes, 14);
+            const len = rsi.length;
+
+            if (len < 2) return null;
+
+            const currRSI = rsi[len - 1];
+            const prevRSI = rsi[len - 2];
+            const candleClose = closes[closes.length - 1];
+            const candleOpen = state.candles[state.candles.length - 1].open;
+
+            // Oversold reversal + bullish candle
+            if (prevRSI < 30 && currRSI > 30 && candleClose > candleOpen) {
+                return { type: 'CALL', strategy: 'RSI Oversold Reversal' };
+            }
+
+            // Overbought reversal + bearish candle
+            if (prevRSI > 70 && currRSI < 70 && candleClose < candleOpen) {
+                return { type: 'PUT', strategy: 'RSI Overbought Reversal' };
+            }
+
+            return null;
+        }
+
+        // Trade execution
+        function canTrade() {
+            const now = Date.now();
+            const cooldown = parseInt(document.getElementById('cooldownPeriod').value) * 1000;
+            
+            if (now - state.lastTradeTime < cooldown) {
+                return false;
+            }
+
+            if (state.consecutiveLosses >= parseInt(document.getElementById('consecutiveLosses').value)) {
+                notify('Max consecutive losses reached. Bot stopped.', true);
+                stopBot();
+                return false;
+            }
+
+            if (state.dailyLoss >= parseFloat(document.getElementById('dailyLossLimit').value)) {
+                notify('Daily loss limit reached. Bot stopped.', true);
+                stopBot();
+                return false;
+            }
+
+            if (state.totalPnL >= parseFloat(document.getElementById('profitTarget').value)) {
+                notify('Profit target reached! Bot stopped.');
+                stopBot();
+                return false;
+            }
+
+            if (Math.abs(state.totalPnL) >= parseFloat(document.getElementById('maxLoss').value)) {
+                notify('Max loss reached. Bot stopped.', true);
+                stopBot();
+                return false;
+            }
+
+            if (state.stats.total >= parseInt(document.getElementById('maxTrades').value)) {
+                notify('Max trades reached. Bot stopped.');
+                stopBot();
+                return false;
+            }
+
+            if (state.activeTrades.length > 0) {
+                return false;
+            }
+
+            return true;
+        }
+
+        function executeTrade(signal) {
+            const martingaleEnabled = document.getElementById('martingaleEnabled').checked;
+            const baseStake = parseFloat(document.getElementById('stake').value);
+            const multiplier = parseFloat(document.getElementById('martingaleMultiplier').value);
+            const maxSteps = parseInt(document.getElementById('martingaleSteps').value);
+
+            if (martingaleEnabled && state.martingaleStep > 0 && state.martingaleStep < maxSteps) {
+                state.currentStake = baseStake * Math.pow(multiplier, state.martingaleStep);
+            } else {
+                state.currentStake = baseStake;
+                state.martingaleStep = 0;
+            }
+
+            const symbol = document.getElementById('symbol').value;
+            const durationType = document.getElementById('durationType').value;
+            const duration = parseInt(document.getElementById('duration').value);
+
+            // Store the signal for later
+            state.pendingSignal = signal;
+
+            const proposal = {
+                proposal: 1,
+                amount: state.currentStake,
+                basis: 'stake',
+                contract_type: signal.type,
+                currency: 'USD',
+                symbol: symbol,
+                duration: duration,
+                duration_unit: durationType
+            };
+
+            state.ws.send(JSON.stringify(proposal));
+            state.lastTradeTime = Date.now();
+        }
+
+        function handleBuyResponse(buy) {
+            const trade = {
+                id: buy.contract_id,
+                type: buy.longcode,
+                stake: state.currentStake,
+                buyPrice: buy.buy_price,
+                startTime: new Date().toLocaleTimeString(),
+                status: 'active'
+            };
+
+            state.activeTrades.push(trade);
+            updateActiveTrades();
+
+            // Subscribe to contract updates
+            state.ws.send(JSON.stringify({
+                proposal_open_contract: 1,
+                contract_id: buy.contract_id,
+                subscribe: 1
+            }));
+
+            notify(`✅ ${state.pendingSignal ? state.pendingSignal.type : 'Trade'} opened: ${state.currentStake.toFixed(2)}`);
+        }
+
+        function handleProposalResponse(proposal) {
+            if (!proposal.id || !state.pendingSignal) return;
+
+            // Now buy the contract with the actual proposal ID
+            const buyRequest = {
+                buy: proposal.id,
+                price: state.currentStake
+            };
+
+            state.ws.send(JSON.stringify(buyRequest));
+
+            // Add signal marker to chart
+            state.signals.push({
+                time: state.candles[state.candles.length - 1].time,
+                type: state.pendingSignal.type,
+                price: state.candles[state.candles.length - 1].close
+            });
+
+            notify(`${state.pendingSignal.type} signal: ${state.pendingSignal.strategy}`);
+            updateChart();
+        }
+
+        function updateActiveTrade(contract) {
+            const trade = state.activeTrades.find(t => t.id === contract.contract_id);
+            
+            if (!trade) return;
+
+            if (contract.is_sold) {
+                const profit = contract.profit;
+                trade.profit = profit;
+                trade.status = profit > 0 ? 'won' : 'lost';
+                trade.endTime = new Date().toLocaleTimeString();
+
+                // Update statistics
+                state.stats.total++;
+                if (profit > 0) {
+                    state.stats.wins++;
+                    state.consecutiveLosses = 0;
+                    state.martingaleStep = 0;
+                    notify(`✅ Trade won! Profit: ${profit.toFixed(2)}`);
+                } else {
+                    state.stats.losses++;
+                    state.consecutiveLosses++;
+                    state.martingaleStep++;
+                    state.dailyLoss += Math.abs(profit);
+                    notify(`❌ Trade lost: ${profit.toFixed(2)}`, true);
+                }
+
+                state.totalPnL += profit;
+                state.trades.unshift(trade);
+                state.activeTrades = state.activeTrades.filter(t => t.id !== contract.contract_id);
+
+                updateStats();
+                updateTradeHistory();
+                updateActiveTrades();
+                updateBalance();
+            }
+        }
+
+        // UI Updates
+        function updateStatus(connected) {
+            state.connected = connected;
+            const wsStatus = document.getElementById('wsStatus');
+            const wsStatusText = document.getElementById('wsStatusText');
+            
+            if (connected) {
+                wsStatus.className = 'status-dot connected';
+                wsStatusText.textContent = 'Connected';
+            } else {
+                wsStatus.className = 'status-dot disconnected';
+                wsStatusText.textContent = 'Disconnected';
+            }
+        }
+
+        function updateBotStatus(running) {
+            const botStatus = document.getElementById('botStatus');
+            const botStatusText = document.getElementById('botStatusText');
+            
+            if (running) {
+                botStatus.className = 'status-dot connected';
+                botStatusText.textContent = 'Bot Running';
+            } else {
+                botStatus.className = 'status-dot disconnected';
+                botStatusText.textContent = 'Bot Stopped';
+            }
+        }
+
+        function updateBalance() {
+            document.getElementById('balance').textContent = state.balance.toFixed(2);
+            document.getElementById('pnl').textContent = state.totalPnL.toFixed(2);
+            document.getElementById('pnl').style.color = state.totalPnL >= 0 ? '#00ff88' : '#ff4444';
+        }
+
+        function updateStats() {
+            document.getElementById('totalTrades').textContent = state.stats.total;
+            document.getElementById('wins').textContent = state.stats.wins;
+            document.getElementById('losses').textContent = state.stats.losses;
+            
+            const winRate = state.stats.total > 0 
+                ? ((state.stats.wins / state.stats.total) * 100).toFixed(1) 
+                : 0;
+            document.getElementById('winRate').textContent = winRate + '%';
+        }
+
+        function updateActiveTrades() {
+            const container = document.getElementById('activeTrades');
+            
+            if (state.activeTrades.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #aaa;">No active trades</p>';
+                return;
+            }
+
+            container.innerHTML = state.activeTrades.map(trade => `
+                <div class="trade-item">
+                    <div><strong>${trade.type}</strong></div>
+                    <div>Stake: ${trade.stake.toFixed(2)} | Started: ${trade.startTime}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateTradeHistory() {
+            const container = document.getElementById('tradeHistory');
+            
+            if (state.trades.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #aaa;">No trade history</p>';
+                return;
+            }
+
+            container.innerHTML = state.trades.slice(0, 20).map(trade => `
+                <div class="trade-item ${trade.status === 'lost' ? 'loss' : ''}">
+                    <div><strong>${trade.type}</strong> - ${trade.status.toUpperCase()}</div>
+                    <div>Stake: ${trade.stake.toFixed(2)} | P/L: ${(trade.profit || 0).toFixed(2)}</div>
+                    <div style="font-size: 11px; color: #888;">${trade.startTime} - ${trade.endTime || 'Active'}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateChart() {
+            if (!state.chart && state.candles.length > 0) {
+                initChart();
+                return;
+            }
+
+            if (!state.chart || state.candles.length === 0) return;
+
+            const labels = state.candles.map(c => {
+                const date = new Date(c.time * 1000);
+                return date.toLocaleTimeString();
+            });
+
+            // Prepare candlestick data
+            const candleData = state.candles.map(c => ({
+                x: new Date(c.time * 1000),
+                o: c.open,
+                h: c.high,
+                l: c.low,
+                c: c.close
+            }));
+
+            // Calculate indicators for overlay
+            const closes = state.candles.map(c => c.close);
+            const ema9 = calculateEMA(closes, 9);
+            const ema21 = calculateEMA(closes, 21);
+
+            state.chart.data.labels = labels;
+            state.chart.data.datasets[0].data = candleData;
+            state.chart.data.datasets[1].data = ema9;
+            state.chart.data.datasets[2].data = ema21;
+
+            // Add signal markers
+            const buySignals = state.signals.filter(s => s.type === 'CALL').map(s => ({
+                x: new Date(s.time * 1000),
+                y: s.price
+            }));
+
+            const sellSignals = state.signals.filter(s => s.type === 'PUT').map(s => ({
+                x: new Date(s.time * 1000),
+                y: s.price
+            }));
+
+            state.chart.data.datasets[3].data = buySignals;
+            state.chart.data.datasets[4].data = sellSignals;
+
+            state.chart.update('none');
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('tradingChart').getContext('2d');
+            
+            state.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Price',
+                            data: [],
+                            borderColor: '#00ccff',
+                            backgroundColor: 'rgba(0, 204, 255, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'EMA 9',
+                            data: [],
+                            borderColor: '#00ff88',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'EMA 21',
+                            data: [],
+                            borderColor: '#ff6600',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Buy Signals',
+                            data: [],
+                            backgroundColor: '#00ff88',
+                            borderColor: '#00ff88',
+                            pointRadius: 8,
+                            pointStyle: 'triangle',
+                            showLine: false
+                        },
+                        {
+                            label: 'Sell Signals',
+                            data: [],
+                            backgroundColor: '#ff4444',
+                            borderColor: '#ff4444',
+                            pointRadius: 8,
+                            pointStyle: 'triangle',
+                            rotation: 180,
+                            showLine: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: { color: '#fff' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#aaa' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#aaa' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Bot control
+        function startBot() {
+            if (!state.connected) {
+                notify('Please connect to Deriv API first', true);
+                return;
+            }
+
+            state.botRunning = true;
+            updateBotStatus(true);
+            notify('Bot started successfully!');
+        }
+
+        function stopBot() {
+            state.botRunning = false;
+            updateBotStatus(false);
+            notify('Bot stopped');
+        }
+
+        function resetStats() {
+            if (confirm('Are you sure you want to reset all statistics?')) {
+                state.stats = { total: 0, wins: 0, losses: 0 };
+                state.totalPnL = 0;
+                state.trades = [];
+                state.consecutiveLosses = 0;
+                state.martingaleStep = 0;
+                state.dailyLoss = 0;
+                state.signals = [];
+                
+                updateStats();
+                updateTradeHistory();
+                updateBalance();
+                updateChart();
+                
+                notify('Statistics reset successfully!');
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            updateStats();
+            updateBotStatus(false);
+            updateStatus(false);
+        });
+    </script>
+</body>
+</html>
