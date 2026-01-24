@@ -6,6 +6,7 @@
     <title>QuantumFX Pro - Advanced Trading Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -195,6 +196,7 @@
                             <label class="block text-sm text-gray-300 mb-2">Timeframe</label>
                             <select id="timeframeSelect" class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-3">
                                 <option value="60">1 Minute</option>
+                                <option value="180">3 Minutes</option>
                                 <option value="300">5 Minutes</option>
                             </select>
                         </div>
@@ -263,6 +265,42 @@
                         </button>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="strategyContainer"></div>
+                </section>
+
+                <!-- Real-Time Trading Chart -->
+                <section class="card-glass rounded-xl p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold flex items-center">
+                            <i class="fas fa-chart-line mr-2 text-blue-400"></i> Live Trading Chart
+                        </h3>
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-gray-400">Signals:</span>
+                                <span class="flex items-center text-xs"><span class="w-3 h-3 bg-green-500 rounded-full mr-1"></span> Buy</span>
+                                <span class="flex items-center text-xs"><span class="w-3 h-3 bg-red-500 rounded-full mr-1"></span> Sell</span>
+                            </div>
+                            <button onclick="resetChartZoom()" class="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
+                                <i class="fas fa-compress-arrows-alt mr-1"></i> Reset Zoom
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-gray-900/50 rounded-lg p-3" style="height: 450px;">
+                        <canvas id="tradingChart"></canvas>
+                    </div>
+                    <div class="mt-3 grid grid-cols-3 gap-3 text-xs">
+                        <div class="bg-gray-800/50 rounded p-2">
+                            <span class="text-gray-400">EMA 12:</span>
+                            <span class="font-bold text-blue-400" id="ema12Value">--</span>
+                        </div>
+                        <div class="bg-gray-800/50 rounded p-2">
+                            <span class="text-gray-400">EMA 50:</span>
+                            <span class="font-bold text-purple-400" id="ema50Value">--</span>
+                        </div>
+                        <div class="bg-gray-800/50 rounded p-2">
+                            <span class="text-gray-400">Signal Strength:</span>
+                            <span class="font-bold text-yellow-400" id="signalStrength">--</span>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Market Data -->
@@ -358,6 +396,17 @@
         let currentRun = 0;
         let martingaleEnabled = false;
         let currentStake = 1;
+        let tradingChart = null;
+        let chartData = {
+            labels: [],
+            prices: [],
+            ema12: [],
+            ema50: [],
+            sma12: [],
+            sma50: [],
+            buySignals: [],
+            sellSignals: []
+        };
 
         // Strategy Configurations
         const strategies = {
@@ -548,6 +597,7 @@
             
             if (candles.length > 0) {
                 updateMarketData();
+                updateChart();
                 if (isTrading) analyzeMarket();
             }
         }
@@ -572,6 +622,7 @@
             }
 
             updateMarketData();
+            updateChart();
         }
 
         function updateMarketData() {
@@ -606,6 +657,7 @@
             
             const closes = candles.map(c => c.close);
             let signal = null;
+            let strategyUsed = null;
 
             // Check each active strategy
             for (const [key, strategy] of Object.entries(strategies)) {
@@ -620,6 +672,9 @@
                 }
 
                 if (signal) {
+                    strategyUsed = key;
+                    // Add signal marker to chart
+                    addSignalToChart(signal, strategyUsed);
                     executeTrade(signal, key);
                     break; // Execute only one trade at a time
                 }
@@ -874,6 +929,251 @@
             if (current > sma20 * 1.001) return 'Up';
             if (current < sma20 * 0.999) return 'Down';
             return 'Neutral';
+        }
+
+        // Chart Functions
+        function initializeChart() {
+            const ctx = document.getElementById('tradingChart').getContext('2d');
+            
+            tradingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Price',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.1,
+                            fill: true,
+                            order: 1
+                        },
+                        {
+                            label: 'EMA 12',
+                            data: [],
+                            borderColor: '#8b5cf6',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4,
+                            borderDash: [5, 5],
+                            order: 2
+                        },
+                        {
+                            label: 'EMA 50',
+                            data: [],
+                            borderColor: '#ec4899',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4,
+                            borderDash: [5, 5],
+                            order: 3
+                        },
+                        {
+                            label: 'SMA 12',
+                            data: [],
+                            borderColor: '#10b981',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            tension: 0.4,
+                            borderDash: [2, 2],
+                            order: 4
+                        },
+                        {
+                            label: 'SMA 50',
+                            data: [],
+                            borderColor: '#f59e0b',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            tension: 0.4,
+                            borderDash: [2, 2],
+                            order: 5
+                        },
+                        {
+                            label: 'Buy Signals',
+                            data: [],
+                            backgroundColor: '#10b981',
+                            borderColor: '#10b981',
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            pointStyle: 'triangle',
+                            showLine: false,
+                            order: 0
+                        },
+                        {
+                            label: 'Sell Signals',
+                            data: [],
+                            backgroundColor: '#ef4444',
+                            borderColor: '#ef4444',
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            pointStyle: 'triangle',
+                            rotation: 180,
+                            showLine: false,
+                            order: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#e2e8f0',
+                                usePointStyle: true,
+                                padding: 15,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#e2e8f0',
+                            borderColor: '#3b82f6',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(5);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                maxTicksLimit: 8,
+                                font: { size: 10 }
+                            }
+                        },
+                        y: {
+                            position: 'right',
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return value.toFixed(5);
+                                },
+                                font: { size: 10 }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 300
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            if (!tradingChart || candles.length === 0) return;
+            
+            const closes = candles.map(c => c.close);
+            const times = candles.map(c => new Date(c.time).toLocaleTimeString());
+            
+            // Calculate all indicators
+            const ema12Values = [];
+            const ema50Values = [];
+            const sma12Values = [];
+            const sma50Values = [];
+            
+            for (let i = 0; i < closes.length; i++) {
+                const subset = closes.slice(0, i + 1);
+                
+                if (i >= 11) {
+                    ema12Values.push(calculateEMA(subset, 12));
+                    sma12Values.push(calculateSMA(subset, 12));
+                } else {
+                    ema12Values.push(null);
+                    sma12Values.push(null);
+                }
+                
+                if (i >= 49) {
+                    ema50Values.push(calculateEMA(subset, 50));
+                    sma50Values.push(calculateSMA(subset, 50));
+                } else {
+                    ema50Values.push(null);
+                    sma50Values.push(null);
+                }
+            }
+            
+            // Update chart data
+            tradingChart.data.labels = times;
+            tradingChart.data.datasets[0].data = closes;
+            tradingChart.data.datasets[1].data = ema12Values;
+            tradingChart.data.datasets[2].data = ema50Values;
+            tradingChart.data.datasets[3].data = sma12Values;
+            tradingChart.data.datasets[4].data = sma50Values;
+            
+            tradingChart.update('none'); // Update without animation for smooth real-time updates
+            
+            // Update indicator values in UI
+            if (closes.length >= 12) {
+                document.getElementById('ema12Value').textContent = ema12Values[ema12Values.length - 1]?.toFixed(5) || '--';
+            }
+            if (closes.length >= 50) {
+                document.getElementById('ema50Value').textContent = ema50Values[ema50Values.length - 1]?.toFixed(5) || '--';
+                
+                // Calculate signal strength
+                const ema12 = ema12Values[ema12Values.length - 1];
+                const ema50 = ema50Values[ema50Values.length - 1];
+                const diff = Math.abs(ema12 - ema50);
+                const strength = diff > ema50 * 0.001 ? 'Strong' : diff > ema50 * 0.0005 ? 'Medium' : 'Weak';
+                document.getElementById('signalStrength').textContent = strength;
+            }
+        }
+
+        function addSignalToChart(signal, strategy) {
+            if (!tradingChart || candles.length === 0) return;
+            
+            const latestIndex = candles.length - 1;
+            const latestPrice = candles[latestIndex].close;
+            
+            if (signal === 'CALL') {
+                // Add buy signal
+                const buyData = [...tradingChart.data.datasets[5].data];
+                buyData[latestIndex] = latestPrice;
+                tradingChart.data.datasets[5].data = buyData;
+            } else {
+                // Add sell signal
+                const sellData = [...tradingChart.data.datasets[6].data];
+                sellData[latestIndex] = latestPrice;
+                tradingChart.data.datasets[6].data = sellData;
+            }
+            
+            tradingChart.update('none');
+        }
+
+        function resetChartZoom() {
+            if (tradingChart) {
+                tradingChart.resetZoom();
+            }
         }
 
         // UI Functions
@@ -1147,6 +1447,7 @@
         window.addEventListener('load', () => {
             initializeStrategies();
             updateAccountInfo();
+            initializeChart();
         });
     </script>
 </body>
