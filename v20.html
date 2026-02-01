@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deriv Quantum Trader - Advanced AI Trading Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        :root {
+            --cyber-primary: #00ff88;
+            --cyber-secondary: #00d4ff;
+            --cyber-accent: #ff006e;
+            --cyber-warning: #ffb800;
+            --cyber-bg: #0a0e27;
+            --cyber-surface: #151b3d;
+            --cyber-card: #1a2351;
+            --cyber-border: rgba(0, 255, 136, 0.3);
+            --cyber-glow: rgba(0, 255, 136, 0.5);
+        }
+
+        body {
+            background: var(--cyber-bg);
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(0, 255, 136, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(255, 0, 110, 0.03) 0%, transparent 50%);
+            color: #e8f0ff;
+            font-family: 'Rajdhani', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .cyber-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glass-morphism {
+            background: rgba(26, 35, 81, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--cyber-border);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-morphism:hover {
+            border-color: var(--cyber-primary);
+            box-shadow: 
+                0 8px 32px rgba(0, 255, 136, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .neon-border {
+            position: relative;
+        }
+
+        .neon-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(45deg, var(--cyber-primary), var(--cyber-secondary), var(--cyber-accent));
+            border-radius: inherit;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .neon-border:hover::before {
+            opacity: 1;
+        }
+
+        .cyber-btn {
+            background: linear-gradient(135deg, var(--cyber-primary) 0%, var(--cyber-secondary) 100%);
+            color: var(--cyber-bg);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cyber-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .cyber-btn:hover::before {
+            left: 100%;
+        }
+
+        .cyber-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px var(--cyber-glow);
+        }
+
+        .cyber-btn-danger {
+            background: linear-gradient(135deg, #ff006e 0%, #ff4081 100%);
+            color: white;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { 
+                opacity: 1; 
+                box-shadow: 0 0 20px currentColor;
+            }
+            50% { 
+                opacity: 0.6; 
+                box-shadow: 0 0 10px currentColor;
+            }
+        }
+
+        .status-connected {
+            background: var(--cyber-primary);
+            color: var(--cyber-primary);
+        }
+
+        .status-disconnected {
+            background: var(--cyber-accent);
+            color: var(--cyber-accent);
+        }
+
+        .signal-card {
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform-origin: center;
+        }
+
+        .signal-card:hover {
+            transform: scale(1.02);
+        }
+
+        .signal-buy {
+            border-left: 4px solid var(--cyber-primary);
+            background: linear-gradient(90deg, rgba(0, 255, 136, 0.1) 0%, transparent 100%);
+        }
+
+        .signal-sell {
+            border-left: 4px solid var(--cyber-accent);
+            background: linear-gradient(90deg, rgba(255, 0, 110, 0.1) 0%, transparent 100%);
+        }
+
+        .metric-display {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-display::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyber-primary), transparent);
+            animation: scan 3s infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .modal-backdrop {
+            backdrop-filter: blur(12px);
+            background: rgba(10, 14, 39, 0.85);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .slide-in {
+            animation: slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .input-cyber {
+            background: rgba(10, 14, 39, 0.8);
+            border: 2px solid var(--cyber-border);
+            color: #e8f0ff;
+            transition: all 0.3s ease;
+        }
+
+        .input-cyber:focus {
+            outline: none;
+            border-color: var(--cyber-primary);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .toggle-cyber {
+            position: relative;
+            width: 56px;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid var(--cyber-border);
+            border-radius: 28px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-cyber.active {
+            background: var(--cyber-primary);
+            border-color: var(--cyber-primary);
+            box-shadow: 0 0 20px var(--cyber-glow);
+        }
+
+        .toggle-cyber::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            top: 1px;
+            left: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .toggle-cyber.active::after {
+            left: 29px;
+        }
+
+        ::-webkit-scrollbar { 
+            width: 10px; 
+            height: 10px; 
+        }
+        
+        ::-webkit-scrollbar-track { 
+            background: rgba(10, 14, 39, 0.5); 
+        }
+        
+        ::-webkit-scrollbar-thumb { 
+            background: var(--cyber-primary); 
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover { 
+            background: var(--cyber-secondary); 
+        }
+
+        .strategy-card {
+            transition: all 0.3s ease;
+        }
+
+        .strategy-card.active {
+            border-color: var(--cyber-primary);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+        }
+
+        .profit-positive {
+            color: var(--cyber-primary);
+            text-shadow: 0 0 10px var(--cyber-primary);
+        }
+
+        .profit-negative {
+            color: var(--cyber-accent);
+            text-shadow: 0 0 10px var(--cyber-accent);
+        }
+
+        @keyframes glow-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .glow-text {
+            text-shadow: 0 0 20px currentColor;
+            animation: glow-pulse 2s infinite;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--cyber-primary);
+            border: 1px solid var(--cyber-primary);
+        }
+
+        .badge-danger {
+            background: rgba(255, 0, 110, 0.2);
+            color: var(--cyber-accent);
+            border: 1px solid var(--cyber-accent);
+        }
+
+        .badge-warning {
+            background: rgba(255, 184, 0, 0.2);
+            color: var(--cyber-warning);
+            border: 1px solid var(--cyber-warning);
+        }
+
+        .badge-info {
+            background: rgba(0, 212, 255, 0.2);
+            color: var(--cyber-secondary);
+            border: 1px solid var(--cyber-secondary);
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--cyber-primary);
+            transition: width 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: var(--cyber-primary);
+        }
+
+        .tab-btn.active::after {
+            width: 100%;
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--cyber-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .chart-container {
+            background: rgba(10, 14, 39, 0.6);
+            border: 1px solid var(--cyber-border);
+            border-radius: 12px;
+            padding: 16px;
+            height: 350px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Cyber Grid Background -->
+    <div class="cyber-grid"></div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-3 max-w-md"></div>
+
+    <!-- Connection Modal -->
+    <div id="connectionModal" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50">
+        <div class="glass-morphism rounded-2xl p-8 max-w-lg w-full mx-4 transform transition-all">
+            <div class="text-center mb-8">
+                <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-cyan-500 via-green-500 to-emerald-500 flex items-center justify-center relative">
+                    <i class="fas fa-robot text-4xl text-white"></i>
+                    <div class="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 animate-ping opacity-20"></div>
+                </div>
+                <h1 class="text-4xl font-black mb-3 orbitron bg-gradient-to-r from-cyan-400 via-green-400 to-emerald-400 bg-clip-text text-transparent">
+                    QUANTUM TRADER
+                </h1>
+                <p class="text-gray-400 text-lg">Enter Deriv API Token</p>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2 uppercase tracking-wide">API Token</label>
+                    <input 
+                        type="password" 
+                        id="apiTokenInput" 
+                        placeholder="Enter your Deriv API token"
+                        class="w-full input-cyber rounded-lg px-4 py-4 text-lg font-mono"
+                    >
+                    <p class="text-xs text-gray-500 mt-2">Get your token from: <a href="https://app.deriv.com/account/api-token" target="_blank" class="text-cyan-400 hover:underline">app.deriv.com/account/api-token</a></p>
+                </div>
+                
+                <button 
+                    onclick="connectToDerivAPI()" 
+                    class="w-full cyber-btn rounded-lg py-4 text-lg font-bold orbitron"
+                >
+                    <i class="fas fa-plug mr-2"></i> CONNECT
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="mainApp" class="hidden relative z-10">
+        <!-- Header -->
+        <header class="glass-morphism border-b border-cyan-500/30 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center">
+                            <i class="fas fa-robot text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-black orbitron text-cyan-400">QUANTUM TRADER</h1>
+                            <div class="flex items-center space-x-2 text-sm">
+                                <span class="status-indicator" id="connectionStatus"></span>
+                                <span id="connectionText" class="text-gray-400">Disconnected</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="glass-morphism px-4 py-2 rounded-lg">
+                            <div class="text-xs text-gray-400 uppercase">Balance</div>
+                            <div class="text-xl font-bold orbitron text-cyan-400" id="accountBalance">$0.00</div>
+                        </div>
+                        <button onclick="disconnect()" class="cyber-btn-danger px-4 py-2 rounded-lg">
+                            <i class="fas fa-power-off"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Market Selection -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="glass-morphism rounded-lg p-4">
+                    <label class="block text-xs font-semibold text-gray-400 mb-2 uppercase">Market</label>
+                    <select id="marketSelect" class="w-full input-cyber rounded-lg px-3 py-3 font-semibold">
+                        <option value="R_10">Volatility 10 Index</option>
+                        <option value="R_25">Volatility 25 Index</option>
+                        <option value="R_50">Volatility 50 Index</option>
+                        <option value="R_75">Volatility 75 Index</option>
+                        <option value="R_100">Volatility 100 Index</option>
+                        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                        <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                        <option value="frxGOLDUSD">Gold/USD</option>
+                        <option value="frxEURUSD">EUR/USD</option>
+                        <option value="frxGBPUSD">GBP/USD</option>
+                    </select>
+                </div>
+
+                <div class="glass-morphism rounded-lg p-4">
+                    <label class="block text-xs font-semibold text-gray-400 mb-2 uppercase">Timeframe</label>
+                    <select id="timeframeSelect" class="w-full input-cyber rounded-lg px-3 py-3 font-semibold">
+                        <option value="60">1 Minute</option>
+                        <option value="180">3 Minutes</option>
+                        <option value="300">5 Minutes</option>
+                        <option value="900">15 Minutes</option>
+                    </select>
+                </div>
+
+                <div class="glass-morphism rounded-lg p-4">
+                    <label class="block text-xs font-semibold text-gray-400 mb-2 uppercase">Current Price</label>
+                    <div class="text-2xl font-black orbitron text-cyan-400" id="currentPrice">--</div>
+                </div>
+            </div>
+
+            <!-- Trading Controls -->
+            <div class="glass-morphism rounded-lg p-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-2 uppercase">Stake Amount</label>
+                        <input type="number" id="stakeAmount" value="1.00" min="0.35" step="0.1" class="w-full input-cyber rounded-lg px-3 py-3 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-2 uppercase">Max Trades</label>
+                        <input type="number" id="maxTrades" value="5" min="1" max="20" class="w-full input-cyber rounded-lg px-3 py-3 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-2 uppercase">Stop Loss %</label>
+                        <input type="number" id="stopLoss" value="10" min="1" max="50" class="w-full input-cyber rounded-lg px-3 py-3 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-2 uppercase">Take Profit %</label>
+                        <input type="number" id="takeProfit" value="20" min="1" max="100" class="w-full input-cyber rounded-lg px-3 py-3 font-mono">
+                    </div>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button id="startTradingBtn" onclick="startTrading()" class="flex-1 cyber-btn rounded-lg py-4 text-lg font-bold orbitron">
+                        <i class="fas fa-play mr-2"></i> START TRADING
+                    </button>
+                    <button id="stopTradingBtn" onclick="stopTrading()" class="flex-1 cyber-btn-danger rounded-lg py-4 text-lg font-bold orbitron hidden">
+                        <i class="fas fa-stop mr-2"></i> STOP TRADING
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Dashboard -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="glass-morphism rounded-lg p-4 metric-display">
+                    <div class="text-xs text-gray-400 uppercase mb-1">Active Trades</div>
+                    <div class="text-3xl font-black orbitron text-cyan-400" id="activeTrades">0</div>
+                </div>
+                <div class="glass-morphism rounded-lg p-4 metric-display">
+                    <div class="text-xs text-gray-400 uppercase mb-1">Total Signals</div>
+                    <div class="text-3xl font-black orbitron text-cyan-400" id="totalSignals">0</div>
+                </div>
+                <div class="glass-morphism rounded-lg p-4 metric-display">
+                    <div class="text-xs text-gray-400 uppercase mb-1">Win Rate</div>
+                    <div class="text-3xl font-black orbitron text-cyan-400" id="winRate">0%</div>
+                </div>
+                <div class="glass-morphism rounded-lg p-4 metric-display">
+                    <div class="text-xs text-gray-400 uppercase mb-1">Total P&L</div>
+                    <div class="text-3xl font-black orbitron" id="totalProfitLoss">$0.00</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="glass-morphism rounded-lg mb-6">
+                <div class="border-b border-cyan-500/30 px-4">
+                    <div class="flex space-x-1">
+                        <button class="tab-btn active" onclick="switchTab('signals')">Signals</button>
+                        <button class="tab-btn" onclick="switchTab('strategies')">Strategies</button>
+                        <button class="tab-btn" onclick="switchTab('active')">Active Trades</button>
+                        <button class="tab-btn" onclick="switchTab('history')">History</button>
+                    </div>
+                </div>
+
+                <!-- Signals Tab -->
+                <div id="signalsTab" class="p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold orbitron text-cyan-400">LIVE SIGNALS</h3>
+                        <div class="flex items-center space-x-2">
+                            <span class="status-indicator status-connected"></span>
+                            <span class="text-sm text-gray-400">Real-time Analysis</span>
+                        </div>
+                    </div>
+                    <div id="signalsContainer" class="space-y-3 max-h-96 overflow-y-auto">
+                        <div class="text-center text-gray-500 py-12">
+                            <i class="fas fa-chart-line text-5xl mb-3 opacity-30"></i>
+                            <p>Waiting for market signals...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strategies Tab -->
+                <div id="strategiesTab" class="p-4 hidden">
+                    <h3 class="text-lg font-bold orbitron text-cyan-400 mb-4">TRADING STRATEGIES</h3>
+                    <div id="strategiesContainer" class="space-y-3"></div>
+                </div>
+
+                <!-- Active Trades Tab -->
+                <div id="activeTab" class="p-4 hidden">
+                    <h3 class="text-lg font-bold orbitron text-cyan-400 mb-4">ACTIVE POSITIONS</h3>
+                    <div id="activeTradesContainer" class="space-y-3">
+                        <div class="text-center text-gray-500 py-12">
+                            <i class="fas fa-exchange-alt text-5xl mb-3 opacity-30"></i>
+                            <p>No active trades</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="historyTab" class="p-4 hidden">
+                    <h3 class="text-lg font-bold orbitron text-cyan-400 mb-4">TRADE HISTORY</h3>
+                    <div id="historyContainer" class="space-y-3 max-h-96 overflow-y-auto">
+                        <div class="text-center text-gray-500 py-12">
+                            <i class="fas fa-history text-5xl mb-3 opacity-30"></i>
+                            <p>No trade history</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // STATE MANAGEMENT
+        // ========================================
+        const state = {
+            ws: null,
+            apiToken: null,
+            isConnected: false,
+            isTrading: false,
+            currentMarket: 'R_10',
+            currentTimeframe: 60,
+            accountBalance: 0,
+            currency: 'USD',
+            accountId: null,
+            pendingTrade: null,
+            candles: [],
+            signals: [],
+            activeTrades: [],
+            tradeHistory: [],
+            strategies: {
+                emaCrossover: {
+                    name: 'EMA Crossover',
+                    active: true,
+                    params: { fastPeriod: 9, slowPeriod: 26 }
+                },
+                macdCrossover: {
+                    name: 'MACD Crossover',
+                    active: true,
+                    params: { signalPeriod: 2 }
+                },
+                bodyBreak: {
+                    name: 'Body Break Momentum',
+                    active: true,
+                    params: { minBodyPercent: 60 }
+                },
+                wickRejection: {
+                    name: 'Wick Rejection',
+                    active: true,
+                    params: { minWickPercent: 70 }
+                },
+                rangeExpansion: {
+                    name: 'Range Expansion',
+                    active: true,
+                    params: { expansionMultiplier: 1.5 }
+                },
+                powerClose: {
+                    name: 'Power Close',
+                    active: true,
+                    params: { minBodyPercent: 60 }
+                },
+                meanReversion: {
+                    name: 'Mid-Body Reversion',
+                    active: true,
+                    params: { retracementLevel: 0.5 }
+                }
+            },
+            riskManager: {
+                maxConcurrentTrades: 5,
+                minStake: 0.35,
+                stopLossPercent: 10,
+                takeProfitPercent: 20,
+                maxDailyLoss: 50
+            },
+            stats: {
+                totalTrades: 0,
+                winningTrades: 0,
+                losingTrades: 0,
+                totalProfit: 0
+            }
+        };
+
+        // ========================================
+        // DERIV API CONNECTION
+        // ========================================
+        function connectToDerivAPI() {
+            const apiToken = document.getElementById('apiTokenInput').value.trim();
+            
+            if (!apiToken) {
+                showToast('Please enter your API token', 'error');
+                return;
+            }
+
+            state.apiToken = apiToken;
+            
+            showToast('Connecting to Deriv...', 'info');
+            
+            try {
+                state.ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=1089`);
+                
+                state.ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    authorizeAPI();
+                };
+                
+                state.ws.onmessage = (msg) => {
+                    handleMessage(JSON.parse(msg.data));
+                };
+                
+                state.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showToast('Connection error', 'error');
+                };
+                
+                state.ws.onclose = () => {
+                    console.log('WebSocket closed');
+                    state.isConnected = false;
+                    updateConnectionStatus(false);
+                    showToast('Disconnected from Deriv', 'warning');
+                };
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                showToast('Failed to connect', 'error');
+            }
+        }
+
+        function authorizeAPI() {
+            sendMessage({
+                authorize: state.apiToken
+            });
+        }
+
+        function sendMessage(data) {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify(data));
+            }
+        }
+
+        function handleMessage(data) {
+            console.log('Received:', data);
+
+            if (data.error) {
+                console.error('API Error:', data.error);
+                let errorMsg = data.error.message || 'Unknown error';
+                
+                // Provide helpful error messages
+                if (data.error.code === 'InputValidationFailed') {
+                    errorMsg = `Validation Error: ${data.error.message}`;
+                    if (data.error.details) {
+                        console.log('Error details:', data.error.details);
+                    }
+                } else if (data.error.code === 'AuthorizationRequired') {
+                    errorMsg = 'Invalid API token. Please check your token.';
+                } else if (data.error.code === 'InvalidToken') {
+                    errorMsg = 'Invalid API token. Get a new one from Deriv.';
+                }
+                
+                showToast(errorMsg, 'error');
+                
+                // Clear pending trade on error
+                if (state.pendingTrade) {
+                    state.pendingTrade = null;
+                }
+                return;
+            }
+
+            if (data.msg_type === 'authorize') {
+                handleAuthorization(data);
+            } else if (data.msg_type === 'balance') {
+                handleBalance(data);
+            } else if (data.msg_type === 'candles' || data.msg_type === 'ohlc') {
+                handleCandles(data);
+            } else if (data.msg_type === 'tick') {
+                handleTick(data);
+            } else if (data.msg_type === 'proposal') {
+                handleProposal(data);
+            } else if (data.msg_type === 'buy') {
+                handleBuyResponse(data);
+            } else if (data.msg_type === 'proposal_open_contract') {
+                handleOpenContract(data);
+            }
+        }
+
+        function handleAuthorization(data) {
+            if (data.authorize) {
+                state.isConnected = true;
+                state.accountBalance = parseFloat(data.authorize.balance);
+                state.currency = data.authorize.currency;
+                state.accountId = data.authorize.account_id;
+                
+                updateConnectionStatus(true);
+                updateAccountBalance();
+                
+                document.getElementById('connectionModal').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                
+                showToast(`Connected! Account: ${state.currency}`, 'success');
+                
+                // Subscribe to balance updates
+                sendMessage({ balance: 1, subscribe: 1 });
+                
+                // Subscribe to market data
+                subscribeToMarket();
+                
+                // Initialize strategies UI
+                initStrategies();
+            }
+        }
+
+        function handleBalance(data) {
+            if (data.balance) {
+                state.accountBalance = parseFloat(data.balance.balance);
+                updateAccountBalance();
+            }
+        }
+
+        function handleCandles(data) {
+            if (data.candles) {
+                state.candles = data.candles.map(c => ({
+                    time: c.epoch,
+                    open: parseFloat(c.open),
+                    high: parseFloat(c.high),
+                    low: parseFloat(c.low),
+                    close: parseFloat(c.close)
+                }));
+                
+                analyzeMarket();
+            } else if (data.ohlc) {
+                const candle = {
+                    time: data.ohlc.open_time,
+                    open: parseFloat(data.ohlc.open),
+                    high: parseFloat(data.ohlc.high),
+                    low: parseFloat(data.ohlc.low),
+                    close: parseFloat(data.ohlc.close)
+                };
+                
+                // Update or add candle
+                const existingIndex = state.candles.findIndex(c => c.time === candle.time);
+                if (existingIndex >= 0) {
+                    state.candles[existingIndex] = candle;
+                } else {
+                    state.candles.push(candle);
+                    if (state.candles.length > 100) {
+                        state.candles.shift();
+                    }
+                }
+                
+                analyzeMarket();
+            }
+        }
+
+        function handleTick(data) {
+            if (data.tick) {
+                document.getElementById('currentPrice').textContent = parseFloat(data.tick.quote).toFixed(data.tick.pip || 2);
+            }
+        }
+
+        function handleBuyResponse(data) {
+            if (data.buy) {
+                const contract = data.buy;
+                const trade = {
+                    id: contract.contract_id,
+                    type: contract.longcode.includes('Rise') || contract.longcode.includes('Higher') ? 'CALL' : 'PUT',
+                    stake: parseFloat(contract.buy_price),
+                    entryTime: Date.now(),
+                    entryPrice: parseFloat(contract.start_spot || 0),
+                    status: 'open',
+                    market: state.currentMarket
+                };
+                
+                state.activeTrades.push(trade);
+                updateActiveTradesUI();
+                updateStats();
+                
+                showToast(`✓ ${trade.type} trade opened - $${trade.stake.toFixed(2)}`, 'success');
+                
+                // Subscribe to contract updates
+                sendMessage({
+                    proposal_open_contract: 1,
+                    contract_id: trade.id,
+                    subscribe: 1
+                });
+            }
+        }
+
+        function handleOpenContract(data) {
+            if (data.proposal_open_contract) {
+                const contract = data.proposal_open_contract;
+                const tradeIndex = state.activeTrades.findIndex(t => t.id === contract.contract_id);
+                
+                if (tradeIndex >= 0) {
+                    const trade = state.activeTrades[tradeIndex];
+                    
+                    // Update current profit while trade is open
+                    if (!contract.is_sold && contract.status !== 'sold') {
+                        trade.currentProfit = parseFloat(contract.profit || 0);
+                        trade.currentPrice = parseFloat(contract.current_spot || 0);
+                        
+                        // Update the UI for this specific trade
+                        updateActiveTradesUI();
+                    } else {
+                        // Trade is closed
+                        trade.exitTime = Date.now();
+                        trade.profit = parseFloat(contract.profit || 0);
+                        trade.exitPrice = parseFloat(contract.exit_tick || contract.current_spot || 0);
+                        trade.status = 'closed';
+                        
+                        state.tradeHistory.unshift(trade);
+                        state.activeTrades.splice(tradeIndex, 1);
+                        
+                        state.stats.totalTrades++;
+                        if (trade.profit > 0) {
+                            state.stats.winningTrades++;
+                        } else {
+                            state.stats.losingTrades++;
+                        }
+                        state.stats.totalProfit += trade.profit;
+                        
+                        updateActiveTradesUI();
+                        updateHistoryUI();
+                        updateStats();
+                        
+                        const profitText = `${trade.profit >= 0 ? '+' : ''}$${trade.profit.toFixed(2)}`;
+                        showToast(`Trade closed: ${profitText}`, 
+                                 trade.profit >= 0 ? 'success' : 'error');
+                    }
+                }
+            }
+        }
+
+        function subscribeToMarket() {
+            // Subscribe to ticks for current price
+            sendMessage({
+                ticks: state.currentMarket,
+                subscribe: 1
+            });
+            
+            // Subscribe to candles
+            sendMessage({
+                ticks_history: state.currentMarket,
+                style: 'candles',
+                granularity: state.currentTimeframe,
+                count: 100,
+                end: 'latest',
+                subscribe: 1
+            });
+        }
+
+        // ========================================
+        // TECHNICAL ANALYSIS
+        // ========================================
+        function calculateEMA(data, period) {
+            const k = 2 / (period + 1);
+            const ema = [data[0]];
+            
+            for (let i = 1; i < data.length; i++) {
+                ema.push(data[i] * k + ema[i - 1] * (1 - k));
+            }
+            
+            return ema;
+        }
+
+        function calculateMACD(closes) {
+            const ema12 = calculateEMA(closes, 12);
+            const ema26 = calculateEMA(closes, 26);
+            const macdLine = ema12.map((val, i) => val - ema26[i]);
+            const signalLine = calculateEMA(macdLine, 9);
+            
+            return { macdLine, signalLine };
+        }
+
+        function calculateRSI(closes, period = 14) {
+            const changes = closes.slice(1).map((price, i) => price - closes[i]);
+            const gains = changes.map(change => change > 0 ? change : 0);
+            const losses = changes.map(change => change < 0 ? -change : 0);
+            
+            const avgGain = gains.slice(0, period).reduce((a, b) => a + b) / period;
+            const avgLoss = losses.slice(0, period).reduce((a, b) => a + b) / period;
+            
+            if (avgLoss === 0) return 100;
+            
+            const rs = avgGain / avgLoss;
+            return 100 - (100 / (1 + rs));
+        }
+
+        // ========================================
+        // STRATEGY ANALYSIS
+        // ========================================
+        function analyzeMarket() {
+            if (state.candles.length < 30 || !state.isTrading) return;
+
+            const closes = state.candles.map(c => c.close);
+            const currentCandle = state.candles[state.candles.length - 1];
+            const prevCandle = state.candles[state.candles.length - 2];
+
+            // EMA Crossover Strategy
+            if (state.strategies.emaCrossover.active) {
+                analyzeEMACrossover(closes, currentCandle, prevCandle);
+            }
+
+            // MACD Strategy
+            if (state.strategies.macdCrossover.active) {
+                analyzeMACDCrossover(closes, currentCandle);
+            }
+
+            // Body Break Momentum
+            if (state.strategies.bodyBreak.active) {
+                analyzeBodyBreak(currentCandle);
+            }
+
+            // Wick Rejection
+            if (state.strategies.wickRejection.active) {
+                analyzeWickRejection(currentCandle);
+            }
+
+            // Range Expansion
+            if (state.strategies.rangeExpansion.active) {
+                analyzeRangeExpansion(currentCandle);
+            }
+
+            // Power Close
+            if (state.strategies.powerClose.active) {
+                analyzePowerClose(currentCandle);
+            }
+
+            // Mean Reversion
+            if (state.strategies.meanReversion.active) {
+                analyzeMeanReversion(currentCandle);
+            }
+        }
+
+        function analyzeEMACrossover(closes, currentCandle, prevCandle) {
+            const { fastPeriod, slowPeriod } = state.strategies.emaCrossover.params;
+            const emaFast = calculateEMA(closes, fastPeriod);
+            const emaSlow = calculateEMA(closes, slowPeriod);
+            
+            const currentFast = emaFast[emaFast.length - 1];
+            const currentSlow = emaSlow[emaSlow.length - 1];
+            const prevFast = emaFast[emaFast.length - 2];
+            const prevSlow = emaSlow[emaSlow.length - 2];
+
+            // Bullish crossover
+            if (prevFast <= prevSlow && currentFast > currentSlow && currentCandle.close > currentFast) {
+                generateSignal('CALL', 'EMA Crossover', 'Bullish EMA cross with candle confirmation', 0.85);
+            }
+            
+            // Bearish crossover
+            if (prevFast >= prevSlow && currentFast < currentSlow && currentCandle.close < currentFast) {
+                generateSignal('PUT', 'EMA Crossover', 'Bearish EMA cross with candle confirmation', 0.85);
+            }
+        }
+
+        function analyzeMACDCrossover(closes) {
+            const { macdLine, signalLine } = calculateMACD(closes);
+            const currentMACD = macdLine[macdLine.length - 1];
+            const currentSignal = signalLine[signalLine.length - 1];
+            const prevMACD = macdLine[macdLine.length - 2];
+            const prevSignal = signalLine[signalLine.length - 2];
+
+            if (prevMACD <= prevSignal && currentMACD > currentSignal) {
+                generateSignal('CALL', 'MACD Crossover', 'Bullish MACD crossover', 0.80);
+            }
+            
+            if (prevMACD >= prevSignal && currentMACD < currentSignal) {
+                generateSignal('PUT', 'MACD Crossover', 'Bearish MACD crossover', 0.80);
+            }
+        }
+
+        function analyzeBodyBreak(candle) {
+            const bodySize = Math.abs(candle.close - candle.open);
+            const totalRange = candle.high - candle.low;
+            const bodyPercent = (bodySize / totalRange) * 100;
+
+            if (bodyPercent >= state.strategies.bodyBreak.params.minBodyPercent) {
+                if (candle.close > candle.open) {
+                    generateSignal('CALL', 'Body Break', `Strong bullish body (${bodyPercent.toFixed(0)}%)`, 0.78);
+                } else {
+                    generateSignal('PUT', 'Body Break', `Strong bearish body (${bodyPercent.toFixed(0)}%)`, 0.78);
+                }
+            }
+        }
+
+        function analyzeWickRejection(candle) {
+            const bodySize = Math.abs(candle.close - candle.open);
+            const totalRange = candle.high - candle.low;
+            const upperWick = candle.high - Math.max(candle.open, candle.close);
+            const lowerWick = Math.min(candle.open, candle.close) - candle.low;
+            
+            const wickPercent = Math.max(upperWick, lowerWick) / totalRange * 100;
+
+            if (wickPercent >= state.strategies.wickRejection.params.minWickPercent) {
+                if (upperWick > lowerWick) {
+                    generateSignal('PUT', 'Wick Rejection', 'Strong upper wick rejection', 0.82);
+                } else {
+                    generateSignal('CALL', 'Wick Rejection', 'Strong lower wick rejection', 0.82);
+                }
+            }
+        }
+
+        function analyzeRangeExpansion(candle) {
+            if (state.candles.length < 6) return;
+            
+            const last5Candles = state.candles.slice(-6, -1);
+            const avgRange = last5Candles.reduce((sum, c) => sum + (c.high - c.low), 0) / 5;
+            const currentRange = candle.high - candle.low;
+            
+            const expansion = currentRange / avgRange;
+
+            if (expansion >= state.strategies.rangeExpansion.params.expansionMultiplier) {
+                if (candle.close > candle.open) {
+                    generateSignal('CALL', 'Range Expansion', `${expansion.toFixed(1)}x range expansion`, 0.75);
+                } else {
+                    generateSignal('PUT', 'Range Expansion', `${expansion.toFixed(1)}x range expansion`, 0.75);
+                }
+            }
+        }
+
+        function analyzePowerClose(candle) {
+            const bodySize = Math.abs(candle.close - candle.open);
+            const totalRange = candle.high - candle.low;
+            const bodyPercent = (bodySize / totalRange) * 100;
+
+            if (bodyPercent >= state.strategies.powerClose.params.minBodyPercent) {
+                const closeNearHigh = (candle.high - candle.close) / totalRange < 0.1;
+                const closeNearLow = (candle.close - candle.low) / totalRange < 0.1;
+
+                if (closeNearHigh && candle.close > candle.open) {
+                    generateSignal('CALL', 'Power Close', 'Strong close at highs', 0.88);
+                } else if (closeNearLow && candle.close < candle.open) {
+                    generateSignal('PUT', 'Power Close', 'Strong close at lows', 0.88);
+                }
+            }
+        }
+
+        function analyzeMeanReversion(candle) {
+            const totalRange = candle.high - candle.low;
+            const midPoint = candle.low + (totalRange * 0.5);
+            
+            // Check if price is reverting to midpoint
+            if (candle.close > candle.high * 0.9 && candle.close > midPoint) {
+                generateSignal('PUT', 'Mean Reversion', 'Reversion from highs', 0.72);
+            } else if (candle.close < candle.low * 1.1 && candle.close < midPoint) {
+                generateSignal('CALL', 'Mean Reversion', 'Reversion from lows', 0.72);
+            }
+        }
+
+        function generateSignal(type, strategy, reason, confidence) {
+            // Avoid duplicate recent signals
+            const recentSignal = state.signals.find(s => 
+                s.type === type && 
+                s.strategy === strategy && 
+                Date.now() - s.time < 10000
+            );
+            
+            if (recentSignal) return;
+
+            const signal = {
+                id: Date.now(),
+                type,
+                strategy,
+                reason,
+                confidence,
+                time: Date.now(),
+                market: state.currentMarket,
+                timeframe: state.currentTimeframe
+            };
+
+            state.signals.unshift(signal);
+            if (state.signals.length > 50) {
+                state.signals.pop();
+            }
+
+            updateSignalsUI();
+            updateStats();
+
+            // Execute trade if conditions are met
+            if (shouldExecuteTrade(signal)) {
+                executeTrade(signal);
+            }
+        }
+
+        function shouldExecuteTrade(signal) {
+            // Check if trading is active
+            if (!state.isTrading) return false;
+
+            // Check max concurrent trades
+            if (state.activeTrades.length >= state.riskManager.maxConcurrentTrades) {
+                return false;
+            }
+
+            // Check confidence threshold
+            if (signal.confidence < 0.75) return false;
+
+            // Check account balance
+            const stake = parseFloat(document.getElementById('stakeAmount').value);
+            if (state.accountBalance < stake * 2) {
+                showToast('Insufficient balance', 'warning');
+                return false;
+            }
+
+            return true;
+        }
+
+        function executeTrade(signal) {
+            const stake = parseFloat(document.getElementById('stakeAmount').value);
+            const timeframe = state.currentTimeframe;
+            
+            // Ensure minimum stake
+            if (stake < state.riskManager.minStake) {
+                showToast(`Stake too low. Minimum: $${state.riskManager.minStake}`, 'warning');
+                return;
+            }
+
+            const contractType = signal.type === 'CALL' ? 'CALL' : 'PUT';
+            const duration = Math.floor(timeframe / 60);
+            
+            // First get a proposal to validate
+            const proposalReqId = Date.now();
+            sendMessage({
+                proposal: 1,
+                amount: stake,
+                basis: 'stake',
+                contract_type: contractType,
+                currency: state.currency,
+                duration: duration,
+                duration_unit: 'm',
+                symbol: state.currentMarket
+            });
+            
+            // Store pending trade
+            state.pendingTrade = {
+                signal,
+                stake,
+                contractType,
+                reqId: proposalReqId
+            };
+        }
+        
+        function handleProposal(data) {
+            if (data.proposal && state.pendingTrade) {
+                // Proposal is valid, now buy
+                sendMessage({
+                    buy: data.proposal.id,
+                    price: state.pendingTrade.stake
+                });
+                
+                console.log(`Buying contract: ${data.proposal.id} for $${state.pendingTrade.stake}`);
+                
+                state.pendingTrade = null;
+            }
+        }
+
+        // ========================================
+        // TRADING CONTROLS
+        // ========================================
+        function startTrading() {
+            if (!state.isConnected) {
+                showToast('Please connect first', 'warning');
+                return;
+            }
+
+            state.isTrading = true;
+            document.getElementById('startTradingBtn').classList.add('hidden');
+            document.getElementById('stopTradingBtn').classList.remove('hidden');
+            
+            showToast('Auto-trading activated!', 'success');
+        }
+
+        function stopTrading() {
+            state.isTrading = false;
+            document.getElementById('startTradingBtn').classList.remove('hidden');
+            document.getElementById('stopTradingBtn').classList.add('hidden');
+            
+            showToast('Auto-trading stopped', 'info');
+        }
+
+        function disconnect() {
+            if (state.ws) {
+                state.ws.close();
+            }
+            
+            state.isConnected = false;
+            state.isTrading = false;
+            
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('connectionModal').classList.remove('hidden');
+            
+            showToast('Disconnected', 'info');
+        }
+
+        // ========================================
+        // UI UPDATES
+        // ========================================
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            const textEl = document.getElementById('connectionText');
+            
+            if (connected) {
+                statusEl.classList.remove('status-disconnected');
+                statusEl.classList.add('status-connected');
+                textEl.textContent = 'Connected';
+            } else {
+                statusEl.classList.remove('status-connected');
+                statusEl.classList.add('status-disconnected');
+                textEl.textContent = 'Disconnected';
+            }
+        }
+
+        function updateAccountBalance() {
+            document.getElementById('accountBalance').textContent = `$${state.accountBalance.toFixed(2)}`;
+        }
+
+        function updateStats() {
+            document.getElementById('activeTrades').textContent = state.activeTrades.length;
+            document.getElementById('totalSignals').textContent = state.signals.length;
+            
+            const winRate = state.stats.totalTrades > 0 
+                ? (state.stats.winningTrades / state.stats.totalTrades * 100).toFixed(1)
+                : '0';
+            document.getElementById('winRate').textContent = `${winRate}%`;
+            
+            const profitEl = document.getElementById('totalProfitLoss');
+            profitEl.textContent = `$${state.stats.totalProfit.toFixed(2)}`;
+            profitEl.className = state.stats.totalProfit >= 0 ? 'text-3xl font-black orbitron profit-positive' : 'text-3xl font-black orbitron profit-negative';
+        }
+
+        function updateSignalsUI() {
+            const container = document.getElementById('signalsContainer');
+            
+            if (state.signals.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-12">
+                        <i class="fas fa-chart-line text-5xl mb-3 opacity-30"></i>
+                        <p>Waiting for market signals...</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            state.signals.slice(0, 20).forEach(signal => {
+                const div = document.createElement('div');
+                div.className = `signal-card ${signal.type === 'CALL' ? 'signal-buy' : 'signal-sell'} glass-morphism p-4 rounded-lg`;
+                
+                const confidenceColor = signal.confidence >= 0.85 ? 'text-cyan-400' : signal.confidence >= 0.75 ? 'text-yellow-400' : 'text-gray-400';
+                
+                div.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="badge ${signal.type === 'CALL' ? 'badge-success' : 'badge-danger'}">${signal.type}</span>
+                                <span class="text-xs text-gray-400">${signal.strategy}</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-1">${signal.reason}</p>
+                            <div class="flex items-center space-x-3 text-xs text-gray-500">
+                                <span><i class="far fa-clock mr-1"></i>${new Date(signal.time).toLocaleTimeString()}</span>
+                                <span><i class="fas fa-chart-bar mr-1"></i>${signal.timeframe}s</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-black orbitron ${confidenceColor}">
+                                ${(signal.confidence * 100).toFixed(0)}%
+                            </div>
+                            <div class="text-xs text-gray-500 uppercase">Confidence</div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        function updateActiveTradesUI() {
+            const container = document.getElementById('activeTradesContainer');
+            
+            if (state.activeTrades.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-12">
+                        <i class="fas fa-exchange-alt text-5xl mb-3 opacity-30"></i>
+                        <p>No active trades</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            state.activeTrades.forEach(trade => {
+                const div = document.createElement('div');
+                div.className = `signal-card ${trade.type === 'CALL' ? 'signal-buy' : 'signal-sell'} glass-morphism p-4 rounded-lg`;
+                div.id = `trade-${trade.id}`;
+                
+                const elapsed = Math.floor((Date.now() - trade.entryTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                
+                div.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="badge ${trade.type === 'CALL' ? 'badge-success' : 'badge-danger'}">${trade.type}</span>
+                                <span class="text-xs text-gray-400">${trade.market}</span>
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                <i class="far fa-clock mr-1"></i>${minutes}:${seconds.toString().padStart(2, '0')} elapsed
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-bold orbitron text-cyan-400">$${trade.stake.toFixed(2)}</div>
+                            <div class="text-xs text-gray-500">Stake</div>
+                            ${trade.currentProfit !== undefined ? `
+                                <div class="text-sm font-bold mt-1 ${trade.currentProfit >= 0 ? 'profit-positive' : 'profit-negative'}">
+                                    ${trade.currentProfit >= 0 ? '+' : ''}$${trade.currentProfit.toFixed(2)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        function updateHistoryUI() {
+            const container = document.getElementById('historyContainer');
+            
+            if (state.tradeHistory.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-12">
+                        <i class="fas fa-history text-5xl mb-3 opacity-30"></i>
+                        <p>No trade history</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            state.tradeHistory.slice(0, 30).forEach(trade => {
+                const div = document.createElement('div');
+                div.className = `signal-card ${trade.type === 'CALL' ? 'signal-buy' : 'signal-sell'} glass-morphism p-4 rounded-lg`;
+                
+                div.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="badge ${trade.type === 'CALL' ? 'badge-success' : 'badge-danger'}">${trade.type}</span>
+                            <div class="text-sm text-gray-400 mt-1">
+                                <i class="far fa-clock mr-1"></i>${new Date(trade.exitTime).toLocaleTimeString()}
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">Stake: $${trade.stake.toFixed(2)}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-black orbitron ${trade.profit >= 0 ? 'profit-positive' : 'profit-negative'}">
+                                ${trade.profit >= 0 ? '+' : ''}$${trade.profit.toFixed(2)}
+                            </div>
+                            <div class="text-xs text-gray-500 uppercase">P&L</div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        function initStrategies() {
+            const container = document.getElementById('strategiesContainer');
+            container.innerHTML = '';
+
+            Object.entries(state.strategies).forEach(([key, strategy]) => {
+                const div = document.createElement('div');
+                div.className = `strategy-card glass-morphism rounded-lg p-4 ${strategy.active ? 'active' : ''}`;
+                
+                div.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h4 class="font-bold text-lg orbitron text-cyan-400 mb-1">${strategy.name}</h4>
+                            <span class="badge ${strategy.active ? 'badge-success' : 'badge-info'}">
+                                ${strategy.active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                        <div class="toggle-cyber ${strategy.active ? 'active' : ''}" onclick="toggleStrategy('${key}')"></div>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        function toggleStrategy(key) {
+            state.strategies[key].active = !state.strategies[key].active;
+            initStrategies();
+            showToast(
+                `${state.strategies[key].name} ${state.strategies[key].active ? 'activated' : 'deactivated'}`, 
+                'info'
+            );
+        }
+
+        function switchTab(tab) {
+            // Hide all tabs
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(`${tab}Tab`).classList.remove('hidden');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        function showToast(message, type = 'info') {
+            const colors = {
+                success: 'bg-gradient-to-r from-green-600 to-emerald-600 border-green-400',
+                error: 'bg-gradient-to-r from-red-600 to-pink-600 border-red-400',
+                warning: 'bg-gradient-to-r from-yellow-600 to-orange-600 border-yellow-400',
+                info: 'bg-gradient-to-r from-blue-600 to-cyan-600 border-cyan-400'
+            };
+
+            const icons = {
+                success: 'check-circle',
+                error: 'times-circle',
+                warning: 'exclamation-triangle',
+                info: 'info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `slide-in ${colors[type]} text-white px-6 py-4 rounded-lg shadow-2xl border-l-4 flex items-center backdrop-blur-sm`;
+            toast.innerHTML = `
+                <i class="fas fa-${icons[type]} mr-3 text-xl"></i>
+                <span class="font-semibold">${message}</span>
+            `;
+
+            document.getElementById('toastContainer').appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(400px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ========================================
+        // EVENT LISTENERS
+        // ========================================
+        document.getElementById('marketSelect').addEventListener('change', (e) => {
+            if (state.isTrading) {
+                showToast('Stop trading before changing markets', 'warning');
+                e.target.value = state.currentMarket;
+                return;
+            }
+            
+            state.currentMarket = e.target.value;
+            state.candles = [];
+            state.signals = [];
+            
+            showToast('Market changed. Resubscribing...', 'info');
+            subscribeToMarket();
+        });
+
+        document.getElementById('timeframeSelect').addEventListener('change', (e) => {
+            if (state.isTrading) {
+                showToast('Stop trading before changing timeframe', 'warning');
+                e.target.value = state.currentTimeframe;
+                return;
+            }
+            
+            state.currentTimeframe = parseInt(e.target.value);
+            state.candles = [];
+            state.signals = [];
+            
+            showToast('Timeframe changed. Resubscribing...', 'info');
+            subscribeToMarket();
+        });
+
+        // Risk manager updates
+        document.getElementById('maxTrades').addEventListener('change', (e) => {
+            state.riskManager.maxConcurrentTrades = parseInt(e.target.value);
+        });
+
+        document.getElementById('stopLoss').addEventListener('change', (e) => {
+            state.riskManager.stopLossPercent = parseFloat(e.target.value);
+        });
+
+        document.getElementById('takeProfit').addEventListener('change', (e) => {
+            state.riskManager.takeProfitPercent = parseFloat(e.target.value);
+        });
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            console.log('Quantum Trader initialized');
+            
+            // Auto-refresh active trades every second to update elapsed time
+            setInterval(() => {
+                if (state.activeTrades.length > 0) {
+                    updateActiveTradesUI();
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
